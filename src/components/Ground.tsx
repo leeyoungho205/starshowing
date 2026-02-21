@@ -77,10 +77,10 @@ export default function Ground() {
 
     return (
         <group>
-            {/* ── 지면 바닥 (어두운 녹색 원반, Y=0 아래) ── */}
+            {/* ── 지면 바닥 (반투명 - 지평선 아래 별자리가 흐리게 보임) ── */}
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]}>
                 <circleGeometry args={[HORIZON_RADIUS * 1.5, 64]} />
-                <meshBasicMaterial color="#040804" side={DoubleSide} />
+                <meshBasicMaterial color="#0a1a1a" transparent opacity={0.75} side={DoubleSide} />
             </mesh>
 
             {/* ── 지평선 글로우 (안쪽 - 청록색 그라데이션) ── */}
@@ -203,7 +203,7 @@ export default function Ground() {
                 return (
                     <mesh key={`tree-${i}`} position={[x, h * 0.5, z]}>
                         <boxGeometry args={[HORIZON_RADIUS * 0.12, h, 1]} />
-                        <meshBasicMaterial color="#020402" side={DoubleSide} />
+                        <meshBasicMaterial color="#020402" transparent opacity={0.8} side={DoubleSide} />
                     </mesh>
                 )
             })}
