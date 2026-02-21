@@ -1,0 +1,13 @@
+{
+    "$schema": "node_modules/wrangler/config-schema.json",
+    "name": "starshowing",
+    "main": "src/main.tsx",
+    "compatibility_date": "2026-02-21",
+    "assets": {
+        "directory": "./dist",
+        "binding": "ASSETS"
+    },
+    "observability": {
+        "enabled": true
+    }
+}
