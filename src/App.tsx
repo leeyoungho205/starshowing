@@ -57,6 +57,7 @@ function App() {
         onResetTime={resetTime}
         onEnterGroundView={handleEnterGroundView}
         onExitGroundView={handleExitGroundView}
+        onLocationSelect={setSelectedLocation}
       />
     </div>
   )

@@ -8,6 +8,7 @@ import {
 import { STARS, CONSTELLATIONS } from '../data/stars'
 import Sun from './Sun'
 import Moon from './Moon'
+import Planets from './Planets'
 
 interface CelestialSphereProps {
     viewMode: 'orbit' | 'ground'
@@ -299,6 +300,9 @@ export default function CelestialSphere({ viewMode, selectedLocation, time }: Ce
 
             {/* ── 달 ── */}
             <Moon time={time} celestialRadius={CELESTIAL_RADIUS} />
+
+            {/* ── 행성 ── */}
+            <Planets time={time} celestialRadius={CELESTIAL_RADIUS} />
         </group>
     )
 }

@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
-import { DoubleSide } from 'three'
+import { DoubleSide, TextureLoader } from 'three'
+import { useLoader } from '@react-three/fiber'
 import { getMoonPosition, getMoonPhaseAngle, raDecToXYZ } from '../utils/celestialCalc'
 
 interface MoonProps {
@@ -9,10 +10,13 @@ interface MoonProps {
 
 /**
  * 달 렌더링 컴포넌트
- * - 회색/노란 구체 + 위상(phase) 표현
+ * - NASA 달 텍스처 적용
+ * - 위상(phase) 표현 (반구 그림자 마스크)
  * - 천구 반지름 위에 배치
  */
 export default function Moon({ time, celestialRadius }: MoonProps) {
+    const moonTexture = useLoader(TextureLoader, '/textures/moon.jpg')
+
     const { position, size, phase, phaseLabel } = useMemo(() => {
         const moonPos = getMoonPosition(time)
         const pos = raDecToXYZ(moonPos.ra, moonPos.dec, celestialRadius)
@@ -35,36 +39,31 @@ export default function Moon({ time, celestialRadius }: MoonProps) {
     // 밝기: 보름달(180°)에서 최대, 신월(0°/360°)에서 최소
     const brightness = useMemo(() => {
         const normalized = Math.abs(Math.cos(phase * Math.PI / 180))
-        return 0.3 + 0.7 * (1 - normalized) // 0.3 ~ 1.0
+        return 0.3 + 0.7 * (1 - normalized)
     }, [phase])
-
-    // 달 색상: 위상에 따라 밝기 조절
-    const moonColor = useMemo(() => {
-        const r = Math.round(200 + 55 * brightness)
-        const g = Math.round(190 + 50 * brightness)
-        const b = Math.round(160 + 40 * brightness)
-        return `rgb(${r}, ${g}, ${b})`
-    }, [brightness])
 
     return (
         <group position={position}>
-            {/* 달 본체 */}
+            {/* 달 본체 — NASA 텍스처 */}
             <mesh>
-                <sphereGeometry args={[size, 16, 16]} />
-                <meshBasicMaterial
-                    color={moonColor}
-                    transparent
-                    opacity={brightness}
+                <sphereGeometry args={[size, 32, 32]} />
+                <meshStandardMaterial
+                    map={moonTexture}
+                    emissive="#ffffff"
+                    emissiveIntensity={brightness * 0.4}
+                    emissiveMap={moonTexture}
+                    roughness={1}
+                    metalness={0}
                 />
             </mesh>
 
             {/* 달 그림자 (위상 표현) - 반구 마스크 */}
             <mesh rotation={[0, (phase / 180) * Math.PI, 0]}>
-                <sphereGeometry args={[size * 1.01, 16, 16, 0, Math.PI]} />
+                <sphereGeometry args={[size * 1.01, 32, 32, 0, Math.PI]} />
                 <meshBasicMaterial
                     color="#111111"
                     transparent
-                    opacity={0.7}
+                    opacity={0.75}
                     side={DoubleSide}
                 />
             </mesh>

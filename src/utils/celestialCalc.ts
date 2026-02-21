@@ -94,3 +94,36 @@ export function getSunAngularDiameter(distAU: number): number {
     const distKm = distAU * KM_PER_AU
     return 2 * Math.atan(sunRadiusKm / distKm) * (180 / Math.PI)
 }
+
+/**
+ * 행성의 적도좌표 (J2000)
+ */
+export function getPlanetPosition(body: Body, time: Date): CelestialPosition {
+    const observer = new Observer(0, 0, 0)
+    const eq = Equator(body, time, observer, false, true)
+    return {
+        ra: eq.ra,
+        dec: eq.dec,
+        dist: eq.dist,
+    }
+}
+
+/**
+ * 행성 정보 목록
+ */
+export interface PlanetInfo {
+    name: string
+    label: string
+    body: Body
+    color: string
+    glowColor: string
+    sizeScale: number       // 상대 크기 배율
+}
+
+export const PLANET_INFO: PlanetInfo[] = [
+    { name: 'Mercury', label: '☿ 수성', body: Body.Mercury, color: '#B0B0B0', glowColor: '#C0C0C0', sizeScale: 0.4 },
+    { name: 'Venus', label: '♀ 금성', body: Body.Venus, color: '#FFE4A0', glowColor: '#FFD57A', sizeScale: 0.7 },
+    { name: 'Mars', label: '♂ 화성', body: Body.Mars, color: '#E07050', glowColor: '#FF6040', sizeScale: 0.55 },
+    { name: 'Jupiter', label: '♃ 목성', body: Body.Jupiter, color: '#F0C880', glowColor: '#E8B860', sizeScale: 0.9 },
+    { name: 'Saturn', label: '♄ 토성', body: Body.Saturn, color: '#E8D090', glowColor: '#D4B870', sizeScale: 0.8 },
+]

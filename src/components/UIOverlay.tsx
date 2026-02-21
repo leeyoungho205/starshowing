@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import type { ViewMode } from '../App'
-import { Play, Pause, RotateCcw, Clock, MapPin, Telescope, Globe2 } from 'lucide-react'
+import { Play, Pause, RotateCcw, Clock, MapPin, Telescope, Globe2, Navigation } from 'lucide-react'
 
 interface UIOverlayProps {
     viewMode: ViewMode
@@ -12,6 +13,7 @@ interface UIOverlayProps {
     onResetTime: () => void
     onEnterGroundView: () => void
     onExitGroundView: () => void
+    onLocationSelect: (loc: { lat: number; lon: number }) => void
 }
 
 const SPEED_OPTIONS = [
@@ -21,11 +23,23 @@ const SPEED_OPTIONS = [
     { label: '1시간/초', value: 3600 },
 ]
 
+const LOCATION_PRESETS = [
+    { name: '🇰🇷 서울', lat: 37.57, lon: 126.98 },
+    { name: '🇪🇬 기자 피라미드', lat: 29.98, lon: 31.13 },
+    { name: '🇺🇸 뉴욕', lat: 40.71, lon: -74.01 },
+    { name: '🇯🇵 도쿄', lat: 35.68, lon: 139.69 },
+    { name: '🇦🇺 시드니', lat: -33.87, lon: 151.21 },
+    { name: '🇬🇧 런던', lat: 51.51, lon: -0.13 },
+    { name: '🇧🇷 리우', lat: -22.91, lon: -43.17 },
+    { name: '🇮🇸 레이캬비크', lat: 64.15, lon: -21.94 },
+]
+
 export default function UIOverlay({
     viewMode, selectedLocation, time,
     isPlaying, timeSpeed, onPlayPause, onSpeedChange, onResetTime,
-    onEnterGroundView, onExitGroundView,
+    onEnterGroundView, onExitGroundView, onLocationSelect,
 }: UIOverlayProps) {
+    const [showPresets, setShowPresets] = useState(false)
     return (
         <div style={{
             position: 'absolute', inset: 0, pointerEvents: 'none',
@@ -206,6 +220,76 @@ export default function UIOverlay({
                         color: 'rgba(255,255,255,0.5)', fontSize: '13px',
                     }}>
                         지구를 클릭하여 관측 위치를 선택하세요
+                    </div>
+                )}
+
+                {/* ── 빠른 위치 이동 ── */}
+                {viewMode === 'orbit' && (
+                    <div style={{ position: 'relative' }}>
+                        <button
+                            onClick={() => setShowPresets(p => !p)}
+                            style={{
+                                background: showPresets ? 'rgba(37,99,235,0.6)' : 'rgba(0,0,0,0.65)',
+                                backdropFilter: 'blur(12px)',
+                                border: '1px solid rgba(255,255,255,0.15)',
+                                padding: '8px 16px',
+                                borderRadius: '12px',
+                                color: showPresets ? 'white' : 'rgba(255,255,255,0.7)',
+                                fontSize: '12px',
+                                fontWeight: 500,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                transition: 'all 0.2s ease',
+                            }}
+                        >
+                            <Navigation size={14} />
+                            빠른 위치 이동
+                        </button>
+
+                        {showPresets && (
+                            <div style={{
+                                position: 'absolute', bottom: '100%', left: '50%',
+                                transform: 'translateX(-50%)', marginBottom: '8px',
+                                background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(16px)',
+                                border: '1px solid rgba(255,255,255,0.15)',
+                                borderRadius: '16px', padding: '8px',
+                                display: 'grid', gridTemplateColumns: '1fr 1fr',
+                                gap: '4px', minWidth: '280px',
+                            }}>
+                                {LOCATION_PRESETS.map(loc => (
+                                    <button
+                                        key={loc.name}
+                                        onClick={() => {
+                                            onLocationSelect({ lat: loc.lat, lon: loc.lon })
+                                            setShowPresets(false)
+                                        }}
+                                        style={{
+                                            background: 'rgba(255,255,255,0.05)',
+                                            border: '1px solid rgba(255,255,255,0.08)',
+                                            borderRadius: '10px',
+                                            padding: '8px 12px',
+                                            color: 'rgba(255,255,255,0.85)',
+                                            fontSize: '12px',
+                                            cursor: 'pointer',
+                                            textAlign: 'left',
+                                            transition: 'all 0.15s ease',
+                                        }}
+                                        onMouseEnter={e => {
+                                            e.currentTarget.style.background = 'rgba(37,99,235,0.3)'
+                                            e.currentTarget.style.borderColor = 'rgba(96,165,250,0.4)'
+                                        }}
+                                        onMouseLeave={e => {
+                                            e.currentTarget.style.background = 'rgba(255,255,255,0.05)'
+                                            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'
+                                        }}
+                                    >
+                                        {loc.name}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
