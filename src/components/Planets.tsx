@@ -5,6 +5,7 @@ import { getPlanetPosition, raDecToXYZ, PLANET_INFO } from '../utils/celestialCa
 interface PlanetsProps {
     time: Date
     celestialRadius: number
+    viewMode?: 'orbit' | 'ground'
 }
 
 /**
@@ -12,19 +13,25 @@ interface PlanetsProps {
  * - 수성, 금성, 화성, 목성, 토성을 천구에 배치
  * - 행성별 고유 색상과 글로우 효과
  */
-export default function Planets({ time, celestialRadius }: PlanetsProps) {
+export default function Planets({ time, celestialRadius, viewMode }: PlanetsProps) {
     const planets = useMemo(() => {
-        return PLANET_INFO.map(info => {
+        const isOrbit = viewMode === 'orbit'
+        // 수성부터 토성까지 다른 거리감을 약간 줌
+        const radii = [12, 14, 20, 24, 28]
+
+        return PLANET_INFO.map((info, idx) => {
+            const actualRadius = isOrbit ? radii[idx] : celestialRadius
             const pos = getPlanetPosition(info.body, time)
-            const xyz = raDecToXYZ(pos.ra, pos.dec, celestialRadius)
-            const baseSize = celestialRadius * 0.01
+            const xyz = raDecToXYZ(pos.ra, pos.dec, actualRadius)
+
+            const baseSize = isOrbit ? 0.35 : celestialRadius * 0.01
             return {
                 ...info,
                 position: xyz as [number, number, number],
                 size: baseSize * info.sizeScale,
             }
         })
-    }, [time, celestialRadius])
+    }, [time, celestialRadius, viewMode])
 
     return (
         <>

@@ -6,6 +6,7 @@ import { getMoonPosition, getMoonPhaseAngle, raDecToXYZ } from '../utils/celesti
 interface MoonProps {
     time: Date
     celestialRadius: number
+    viewMode?: 'orbit' | 'ground'
 }
 
 /**
@@ -14,13 +15,18 @@ interface MoonProps {
  * - 위상(phase) 표현 (반구 그림자 마스크)
  * - 천구 반지름 위에 배치
  */
-export default function Moon({ time, celestialRadius }: MoonProps) {
+export default function Moon({ time, celestialRadius, viewMode }: MoonProps) {
     const moonTexture = useLoader(TextureLoader, '/textures/moon.jpg')
 
     const { position, size, phase, phaseLabel } = useMemo(() => {
+        const isOrbit = viewMode === 'orbit'
+        const actualRadius = isOrbit ? 9 : celestialRadius
+
         const moonPos = getMoonPosition(time)
-        const pos = raDecToXYZ(moonPos.ra, moonPos.dec, celestialRadius)
-        const sz = celestialRadius * 0.015
+        const pos = raDecToXYZ(moonPos.ra, moonPos.dec, actualRadius)
+
+        // 지면 모드에서는 실제 천구 비율, 궤도 모드에서는 과장하여 잘 보이게 설정
+        const sz = isOrbit ? 0.35 : celestialRadius * 0.015
         const phaseAngle = getMoonPhaseAngle(time)
 
         let label = ''

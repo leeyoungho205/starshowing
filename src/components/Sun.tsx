@@ -5,6 +5,7 @@ import { getSunPosition, raDecToXYZ } from '../utils/celestialCalc'
 interface SunProps {
     time: Date
     celestialRadius: number
+    viewMode?: 'orbit' | 'ground'
 }
 
 /**
@@ -13,14 +14,18 @@ interface SunProps {
  * - 천구 반지름 위에 배치
  * - 시간에 따라 위치 변경
  */
-export default function Sun({ time, celestialRadius }: SunProps) {
+export default function Sun({ time, celestialRadius, viewMode }: SunProps) {
     const { position, size } = useMemo(() => {
+        const isOrbit = viewMode === 'orbit'
+        const actualRadius = isOrbit ? 18 : celestialRadius
+
         const sunPos = getSunPosition(time)
-        const pos = raDecToXYZ(sunPos.ra, sunPos.dec, celestialRadius)
-        // 태양 크기: 천구 비율 기준 (실제 각지름보다 약간 크게)
-        const sz = celestialRadius * 0.025
+        const pos = raDecToXYZ(sunPos.ra, sunPos.dec, actualRadius)
+
+        // 지면 모드에서는 실제 천구 비율, 궤도 모드에서는 과장하여 명확히 보이도록 설정
+        const sz = isOrbit ? 1.0 : celestialRadius * 0.025
         return { position: pos, size: sz }
-    }, [time, celestialRadius])
+    }, [time, celestialRadius, viewMode])
 
     return (
         <group position={position}>

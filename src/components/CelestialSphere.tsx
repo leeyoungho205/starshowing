@@ -342,13 +342,13 @@ export default function CelestialSphere({ viewMode, selectedLocation, time }: Ce
             <primitive object={linesMesh} />
 
             {/* ── 태양 ── */}
-            <Sun time={time} celestialRadius={CELESTIAL_RADIUS} />
+            <Sun time={time} celestialRadius={CELESTIAL_RADIUS} viewMode={viewMode} />
 
             {/* ── 달 ── */}
-            <Moon time={time} celestialRadius={CELESTIAL_RADIUS} />
+            <Moon time={time} celestialRadius={CELESTIAL_RADIUS} viewMode={viewMode} />
 
             {/* ── 행성 ── */}
-            <Planets time={time} celestialRadius={CELESTIAL_RADIUS} />
+            <Planets time={time} celestialRadius={CELESTIAL_RADIUS} viewMode={viewMode} />
         </group>
     )
 }
