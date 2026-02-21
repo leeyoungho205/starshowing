@@ -31,7 +31,8 @@ export default function SceneContainer({ viewMode, selectedLocation, onLocationS
                 {viewMode === 'orbit' ? (
                     <>
                         {/* ── Orbit 모드 ── */}
-                        <PerspectiveCamera makeDefault position={[0, 0, 3.5]} fov={45} near={0.01} far={1000} />
+                        {/* 카메라: 대한민국이 보이도록 초기 위치 설정 */}
+                        <PerspectiveCamera makeDefault position={[-1.68, 2.1, -2.23]} fov={45} near={0.01} far={1000} />
 
                         {/* 환경광 */}
                         <ambientLight intensity={0.8} />

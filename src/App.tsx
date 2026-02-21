@@ -35,6 +35,7 @@ function App() {
 
   const handleExitGroundView = useCallback(() => {
     setViewMode('orbit')
+    setSelectedLocation(null)
   }, [])
 
   return (
