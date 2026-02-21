@@ -1,8 +1,0 @@
-name = "starshowing"
-compatibility_date = "2026-02-21"
-
-[build]
-custom_build_conditions = ["style"]
-
-[site]
-bucket = "./dist"
