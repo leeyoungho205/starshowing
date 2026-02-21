@@ -10,6 +10,7 @@ import {
   Euler,
   Quaternion,
   MeshBasicMaterial,
+  Vector3,
 } from "three";
 import { STARS, CONSTELLATIONS } from "../data/stars";
 import Sun from "./Sun";
@@ -347,11 +348,23 @@ if (vWorldPosition.y < 0.0) {
       const p = anim.progress;
       const t = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
 
-      const [tx, ty, tz] = latLonToXYZ(
+      // Earth.tsx와 동일하게 현재 시각 기반 자전 각도 계산
+      const gmstDeg = computeLMST(time, 0);
+      const gmstRad = gmstDeg * (Math.PI / 180);
+      const earthRotY = gmstRad - Math.PI / 2;
+
+      // 선택된 위치(위경도)를 로컬 좌표로 변환 후 Earth의 현재 자전 각도 반영
+      const [rawTx, rawTy, rawTz] = latLonToXYZ(
         selectedLocation.lat,
         selectedLocation.lon,
         1.0,
       );
+      const targetVec = new Vector3(rawTx, rawTy, rawTz).applyEuler(
+        new Euler(0, earthRotY, 0),
+      );
+      const tx = targetVec.x;
+      const ty = targetVec.y;
+      const tz = targetVec.z;
 
       for (let i = 0; i < STARS.length; i++) {
         const mesh = starMeshRefs.current[i];
