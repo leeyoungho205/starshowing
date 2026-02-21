@@ -158,6 +158,36 @@ export default function CelestialSphere({ viewMode, selectedLocation, time }: Ce
         const geom = new BufferGeometry()
         geom.setAttribute('position', new Float32BufferAttribute(verts, 3))
         const mat = new LineBasicMaterial({ color: '#4488ff', transparent: true, opacity: 0.35 })
+        mat.onBeforeCompile = (shader) => {
+            shader.vertexShader = shader.vertexShader.replace(
+                '#include <common>',
+                `
+                #include <common>
+                varying vec3 vWorldPosition;
+                `
+            ).replace(
+                '#include <begin_vertex>',
+                `
+                #include <begin_vertex>
+                vWorldPosition = (modelMatrix * vec4(position, 1.0)).xyz;
+                `
+            )
+            shader.fragmentShader = shader.fragmentShader.replace(
+                '#include <common>',
+                `
+                #include <common>
+                varying vec3 vWorldPosition;
+                `
+            ).replace(
+                '#include <dithering_fragment>',
+                `
+                #include <dithering_fragment>
+                if (vWorldPosition.y < 0.0) {
+                    gl_FragColor = vec4(gl_FragColor.rgb, gl_FragColor.a * 0.15);
+                }
+                `
+            )
+        }
         return new LineSegments(geom, mat)
     }, [linePairs, starOriginals])
 
@@ -290,6 +320,36 @@ export default function CelestialSphere({ viewMode, selectedLocation, time }: Ce
                         color="#ffffff"
                         transparent
                         opacity={STARS[i].mag < 1 ? 0.95 : STARS[i].mag < 2 ? 0.8 : 0.6}
+                        onBeforeCompile={(shader) => {
+                            shader.vertexShader = shader.vertexShader.replace(
+                                '#include <common>',
+                                `
+                                #include <common>
+                                varying vec3 vWorldPosition;
+                                `
+                            ).replace(
+                                '#include <begin_vertex>',
+                                `
+                                #include <begin_vertex>
+                                vWorldPosition = (modelMatrix * vec4(position, 1.0)).xyz;
+                                `
+                            )
+                            shader.fragmentShader = shader.fragmentShader.replace(
+                                '#include <common>',
+                                `
+                                #include <common>
+                                varying vec3 vWorldPosition;
+                                `
+                            ).replace(
+                                '#include <dithering_fragment>',
+                                `
+                                #include <dithering_fragment>
+                                if (vWorldPosition.y < 0.0) {
+                                    gl_FragColor = vec4(gl_FragColor.rgb, gl_FragColor.a * 0.15);
+                                }
+                                `
+                            )
+                        }}
                     />
                 </mesh>
             ))}

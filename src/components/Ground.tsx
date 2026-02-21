@@ -77,10 +77,10 @@ export default function Ground() {
 
     return (
         <group>
-            {/* ── 지면 바닥 (불투명도 높임 - 지평선 아래 별자리가 살짝만 보임) ── */}
-            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} renderOrder={1}>
+            {/* ── 지면 바닥 (배경으로 작용하도록 설정) ── */}
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.5, 0]} renderOrder={-1}>
                 <circleGeometry args={[HORIZON_RADIUS * 1.5, 64]} />
-                <meshBasicMaterial color="#21160d" transparent opacity={0.99} side={DoubleSide} depthWrite={false} />
+                <meshBasicMaterial color="#21160d" transparent opacity={0.95} side={DoubleSide} depthWrite={false} />
             </mesh>
 
             {/* ── 지평선 글로우 (안쪽 - 청록색 그라데이션) ── */}
