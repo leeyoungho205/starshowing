@@ -1,7 +1,7 @@
 import { useRef, useMemo, useEffect } from 'react'
 import { useFrame } from '@react-three/fiber'
 import {
-    Group, Vector3, BufferGeometry,
+    Group, BufferGeometry,
     LineSegments, LineBasicMaterial,
     Float32BufferAttribute, Mesh, Euler, Quaternion
 } from 'three'
