@@ -76,7 +76,7 @@ export default function SceneContainer({ viewMode, selectedLocation, onLocationS
                 ) : (
                     <>
                         {/* ── Ground 모드 ── */}
-                        <PerspectiveCamera makeDefault position={[0, 0, 0]} fov={60} near={0.1} far={500} />
+                        <PerspectiveCamera makeDefault position={[0, 0, 0]} fov={75} near={0.1} far={500} />
 
                         {/* 약한 환경광 (밤하늘 분위기) */}
                         <ambientLight intensity={0.3} />

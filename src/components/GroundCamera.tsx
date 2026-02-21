@@ -39,7 +39,7 @@ export default function GroundCamera({ selectedLocation }: GroundCameraProps) {
         // 북쪽 방향, 지평면 위 30°를 바라보도록 target 설정
         // 지면 좌표계: Y=위(천정), Z=남, X=서
         // 북쪽 = -Z, 고도 30° = Y 방향으로 약간 올림
-        const elevationRad = MathUtils.degToRad(30)
+        const elevationRad = MathUtils.degToRad(65)
         const lookDir = new Vector3(
             0,
             Math.sin(elevationRad),
@@ -70,8 +70,8 @@ export default function GroundCamera({ selectedLocation }: GroundCameraProps) {
             rotateSpeed={0.3}
             enableDamping
             dampingFactor={0.05}
-            minPolarAngle={0}
-            maxPolarAngle={Math.PI}
+            minPolarAngle={0.05}
+            maxPolarAngle={Math.PI * 0.55}
         />
     )
 }

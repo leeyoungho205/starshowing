@@ -26,7 +26,7 @@ export default function Ground() {
         }
         const geom = new BufferGeometry()
         geom.setAttribute('position', new Float32BufferAttribute(pts, 3))
-        const mat = new LineBasicMaterial({ color: '#3388aa', transparent: true, opacity: 0.6 })
+        const mat = new LineBasicMaterial({ color: '#55bbdd', transparent: true, opacity: 0.8 })
         return new LineLoop(geom, mat)
     }, [])
 
@@ -83,10 +83,16 @@ export default function Ground() {
                 <meshBasicMaterial color="#040804" side={DoubleSide} />
             </mesh>
 
-            {/* ── 지평선 글로우 ── */}
-            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.005, 0]}>
-                <ringGeometry args={[HORIZON_RADIUS * 0.85, HORIZON_RADIUS * 1.2, 64]} />
-                <meshBasicMaterial color="#0a1520" transparent opacity={0.5} side={DoubleSide} />
+            {/* ── 지평선 글로우 (안쪽 - 청록색 그라데이션) ── */}
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.003, 0]}>
+                <ringGeometry args={[HORIZON_RADIUS * 0.7, HORIZON_RADIUS * 1.05, 64]} />
+                <meshBasicMaterial color="#1a3a4a" transparent opacity={0.6} side={DoubleSide} />
+            </mesh>
+
+            {/* ── 지평선 발광 라인 (상단 링) ── */}
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
+                <ringGeometry args={[HORIZON_RADIUS * 0.97, HORIZON_RADIUS * 1.03, 128]} />
+                <meshBasicMaterial color="#3399aa" transparent opacity={0.35} side={DoubleSide} />
             </mesh>
 
             {/* ── 지평선 원 ── */}
