@@ -36,10 +36,10 @@ export default function GroundCamera({ selectedLocation }: GroundCameraProps) {
         // 카메라를 원점에 배치
         camera.position.set(0, 0, 0)
 
-        // 북쪽 방향, 지평면 위 30°를 바라보도록 target 설정
+        // 북쪽 방향, 지평면 위 45°를 바라보도록 target 설정
         // 지면 좌표계: Y=위(천정), Z=남, X=서
-        // 북쪽 = -Z, 고도 30° = Y 방향으로 약간 올림
-        const elevationRad = MathUtils.degToRad(65)
+        // 북쪽 = -Z, 고도 45° = Y 방향으로 약간 올림
+        const elevationRad = MathUtils.degToRad(45)
         const lookDir = new Vector3(
             0,
             Math.sin(elevationRad),
@@ -55,11 +55,12 @@ export default function GroundCamera({ selectedLocation }: GroundCameraProps) {
         camera.updateProjectionMatrix()
     }, [selectedLocation, camera])
 
-    // target을 항상 카메라로부터 일정 거리로 유지
+    // target을 항상 카메라로부터 일정 거리로 유지하면서 카메라는 원점에 고정
     useFrame(() => {
         if (!controlsRef.current) return
         const dir = controlsRef.current.target.clone().sub(camera.position).normalize()
         controlsRef.current.target.copy(dir.multiplyScalar(10))
+        camera.position.set(0, 0, 0)
     })
 
     return (
@@ -70,8 +71,6 @@ export default function GroundCamera({ selectedLocation }: GroundCameraProps) {
             rotateSpeed={0.3}
             enableDamping
             dampingFactor={0.05}
-            minPolarAngle={0.05}
-            maxPolarAngle={Math.PI * 0.55}
         />
     )
 }
