@@ -52,6 +52,13 @@ function latLonToXYZ(
   ];
 }
 
+// 매 프레임 재사용을 위한 수학 인스턴스 (GC 오버헤드 방지)
+const _targetVec = new Vector3();
+const _eulerY = new Euler();
+const _rotM = new Vector3();
+const _rotSM = new Vector3();
+const _rotEM = new Vector3();
+
 /**
  * 천구 컴포넌트
  * - orbit 모드: 별자리를 큰 천구에 표시, 클릭 위치로 수렴 애니메이션
@@ -341,10 +348,14 @@ if (vWorldPosition.y < 0.0) {
     // ── Orbit 모드 ──
     groupRef.current.rotation.y = 0;
 
-    // 별 수렴 애니메이션
-    const anim = animState.current;
-    if (anim.isAnimating && selectedLocation) {
-      anim.progress = Math.min(anim.progress + delta * 0.8, 1);
+    // 별 수렴 애니메이션 및 위경도 위치 추적
+    if (selectedLocation) {
+      const anim = animState.current;
+      if (anim.isAnimating) {
+        anim.progress = Math.min(anim.progress + delta * 0.8, 1);
+        if (anim.progress >= 1) anim.isAnimating = false;
+      }
+
       const p = anim.progress;
       const t = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
 
@@ -353,28 +364,32 @@ if (vWorldPosition.y < 0.0) {
       const gmstRad = gmstDeg * (Math.PI / 180);
       const earthRotY = gmstRad - Math.PI / 2;
 
+      _eulerY.set(0, earthRotY, 0);
+
       // 선택된 위치(위경도)를 로컬 좌표로 변환 후 Earth의 현재 자전 각도 반영
       const [rawTx, rawTy, rawTz] = latLonToXYZ(
         selectedLocation.lat,
         selectedLocation.lon,
         1.0,
       );
-      const targetVec = new Vector3(rawTx, rawTy, rawTz).applyEuler(
-        new Euler(0, earthRotY, 0),
-      );
-      const tx = targetVec.x;
-      const ty = targetVec.y;
-      const tz = targetVec.z;
+      _targetVec.set(rawTx, rawTy, rawTz).applyEuler(_eulerY);
+      const tx = _targetVec.x;
+      const ty = _targetVec.y;
+      const tz = _targetVec.z;
 
       for (let i = 0; i < STARS.length; i++) {
         const mesh = starMeshRefs.current[i];
         if (!mesh) continue;
         const [ox, oy, oz] = starOriginals[i];
         const [mx, my, mz] = raDecToXYZ(STARS[i].ra, STARS[i].dec, MINI_RADIUS);
+
+        // 미니 천구 내부의 별들도 지구 자전에 맞춰 함께 회전 (교육용 효과)
+        _rotM.set(mx, my, mz).applyEuler(_eulerY);
+
         mesh.position.set(
-          ox + (tx + mx - ox) * t,
-          oy + (ty + my - oy) * t,
-          oz + (tz + mz - oz) * t,
+          ox + (tx + _rotM.x - ox) * t,
+          oy + (ty + _rotM.y - oy) * t,
+          oz + (tz + _rotM.z - oz) * t,
         );
         const origSize = starSizes[i];
         const miniSize =
@@ -399,19 +414,21 @@ if (vWorldPosition.y < 0.0) {
             STARS[ei].dec,
             MINI_RADIUS,
           );
+
+          _rotSM.set(smx, smy, smz).applyEuler(_eulerY);
+          _rotEM.set(emx, emy, emz).applyEuler(_eulerY);
+
           const off = idx * 6;
-          arr[off] = sox + (tx + smx - sox) * t;
-          arr[off + 1] = soy + (ty + smy - soy) * t;
-          arr[off + 2] = soz + (tz + smz - soz) * t;
-          arr[off + 3] = eox + (tx + emx - eox) * t;
-          arr[off + 4] = eoy + (ty + emy - eoy) * t;
-          arr[off + 5] = eoz + (tz + emz - eoz) * t;
+          arr[off] = sox + (tx + _rotSM.x - sox) * t;
+          arr[off + 1] = soy + (ty + _rotSM.y - soy) * t;
+          arr[off + 2] = soz + (tz + _rotSM.z - soz) * t;
+          arr[off + 3] = eox + (tx + _rotEM.x - eox) * t;
+          arr[off + 4] = eoy + (ty + _rotEM.y - eoy) * t;
+          arr[off + 5] = eoz + (tz + _rotEM.z - eoz) * t;
         });
         posAttr.needsUpdate = true;
         geom.computeBoundingSphere();
       }
-
-      if (anim.progress >= 1) anim.isAnimating = false;
     }
   });
 
