@@ -64,6 +64,23 @@ export function getSunDirectionVector(time: Date): [number, number, number] {
 }
 
 /**
+ * LMST(Local Mean Sidereal Time) 계산
+ * 경도가 주어지면 해당 위치의 항성시를, 0을 주면 GMST(그리니치 평균 항성시)를 반환 (단위: 도)
+ */
+export function computeLMST(date: Date, longitudeDeg: number): number {
+    const JD = date.getTime() / 86400000 + 2440587.5
+    const T = (JD - 2451545.0) / 36525.0
+    let gmst = 280.46061837
+        + 360.98564736629 * (JD - 2451545.0)
+        + 0.000387933 * T * T
+        - T * T * T / 38710000.0
+    gmst = ((gmst % 360) + 360) % 360
+    let lmst = gmst + longitudeDeg
+    lmst = ((lmst % 360) + 360) % 360
+    return lmst // in degrees
+}
+
+/**
  * RA/Dec → 천구 XYZ 좌표 변환
  * 기존 CelestialSphere의 raDecToXYZ와 동일한 좌표계
  */

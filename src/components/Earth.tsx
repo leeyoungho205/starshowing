@@ -4,6 +4,7 @@ import { useTexture } from '@react-three/drei'
 import { Group } from 'three'
 import CountryBorders from './CountryBorders'
 import CityLabels from './CityLabels'
+import { computeLMST } from '../utils/celestialCalc'
 
 interface EarthProps {
     selectedLocation: { lat: number; lon: number } | null
@@ -16,7 +17,7 @@ interface EarthProps {
  * 고화질 지구본 컴포넌트
  * NASA Blue Marble 고해상도 텍스처 + 국가 경계선 + 도시 라벨
  */
-export default function Earth({ selectedLocation, onSelect, viewMode }: EarthProps) {
+export default function Earth({ selectedLocation, onSelect, viewMode, time }: EarthProps) {
     const groupRef = useRef<Group>(null)
     const EARTH_RADIUS = 1
 
@@ -67,8 +68,10 @@ export default function Earth({ selectedLocation, onSelect, viewMode }: EarthPro
         onSelect({ lat, lon })
     }
 
+    const gmstRad = computeLMST(time, 0) * (Math.PI / 180)
+
     return (
-        <group ref={groupRef}>
+        <group ref={groupRef} rotation={[0, gmstRad - (Math.PI / 2), 0]}>
             {/* ── 지구 본체 (고해상도 NASA Blue Marble) ── */}
             <mesh
                 onClick={handleClick}

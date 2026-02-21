@@ -9,6 +9,7 @@ import { STARS, CONSTELLATIONS } from '../data/stars'
 import Sun from './Sun'
 import Moon from './Moon'
 import Planets from './Planets'
+import { computeLMST } from '../utils/celestialCalc'
 
 interface CelestialSphereProps {
     viewMode: 'orbit' | 'ground'
@@ -36,21 +37,6 @@ function latLonToXYZ(lat: number, lon: number, R: number): [number, number, numb
     ]
 }
 
-/**
- * LMST(Local Mean Sidereal Time) 계산
- */
-function computeLMST(date: Date, longitudeDeg: number): number {
-    const JD = date.getTime() / 86400000 + 2440587.5
-    const T = (JD - 2451545.0) / 36525.0
-    let gmst = 280.46061837
-        + 360.98564736629 * (JD - 2451545.0)
-        + 0.000387933 * T * T
-        - T * T * T / 38710000.0
-    gmst = ((gmst % 360) + 360) % 360
-    let lmst = gmst + longitudeDeg
-    lmst = ((lmst % 360) + 360) % 360
-    return lmst // in degrees
-}
 
 /**
  * 천구 컴포넌트
