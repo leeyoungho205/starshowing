@@ -25,8 +25,10 @@ export default function Sun({
     const isOrbit = viewMode === "orbit";
     const baseRadius = isOrbit ? 18 : celestialRadius;
 
-    // Zoom Out 상태일 때: 지구 궤도 밖으로 나아가면서 태양계 중심(0,0,0)으로 이동
-    const actualRadius = baseRadius * (1 - zoomProgress);
+    // Zoom Out 상태일 때: 지구 밖으로 아득히 멀리 떨어지는 거대한 공간감 연출
+    // 기존에는 0(중심)으로 모였으나, 디오라마 느낌을 위해 태양을 가장 멀리(수성~토성 궤도 밖) 배치
+    const targetRadius = 150;
+    const actualRadius = baseRadius + (targetRadius - baseRadius) * zoomProgress;
 
     const sunPos = getSunPosition(time);
     const pos = raDecToXYZ(sunPos.ra, sunPos.dec, actualRadius);

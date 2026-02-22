@@ -53,7 +53,8 @@ export default function Planets({
       const baseRadius = isOrbit ? [12, 14, 20, 24, 28][idx] : celestialRadius;
 
       // 태양계 보기 시 실제 궤도 반지름 (SolarSystemView의 궤도선과 일치하도록 매핑)
-      const targetRadius = [12, 14, 20, 24, 28][idx];
+      // 넓은 가시성 및 왜곡을 위해 더 거대한 반경 설정 (수성~토성)
+      const targetRadius = [20, 30, 45, 65, 90][idx];
 
       // 선형 보간 (0일 땐 지구 곁, 1일 땐 분산된 태양계 궤도 반경)
       const actualRadius =

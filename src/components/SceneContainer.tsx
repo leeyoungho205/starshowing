@@ -33,10 +33,17 @@ function OrbitCameraRig({
             // 태양계 중심으로 시점을 살짝 이동 (전체 조망을 위함)
             // 태양 방향으로 50% 정도 당겨서 지구와 태양계를 전체적으로 화면에 담음
             const targetX = sunLightPosition[0] * 0.5 * zoomProgress;
-            const targetY = sunLightPosition[1] * 0.5 * zoomProgress;
+            // 카메라가 위에서 비스듬히 내려다보도록 Y 타겟을 살짝 낮게(상대적으로 카메라가 올라가게)
+            const targetY = (sunLightPosition[1] * 0.5 - 20) * zoomProgress;
             const targetZ = sunLightPosition[2] * 0.5 * zoomProgress;
 
             controlsRef.current.target.lerp(new THREE.Vector3(targetX, targetY, targetZ), 0.1);
+
+            // 줌아웃이 심화될수록 지평선(수평) 각도 제한을 풀어 위에서 아래로(Top-down) 내려다볼 수 있게 허용
+            // 기본은 지평선(Math.PI/2)에서 멈추지만 태양계 뷰에서는 제한을 둔다.
+            const baseMaxPolar = Math.PI / 2; // 지면 아래로 내려가지 않도록 
+            // 줌아웃 시에는 자유로운 조망을 위해 풀어줌
+            controlsRef.current.maxPolarAngle = baseMaxPolar + (Math.PI - baseMaxPolar) * zoomProgress;
         }
     });
 
@@ -47,15 +54,15 @@ function OrbitCameraRig({
                 position={[-1.68, 2.1, -2.23]}
                 fov={45}
                 near={0.01}
-                far={1000}
+                far={2000}
             />
             <OrbitControls
                 ref={controlsRef}
                 enablePan={false}
                 enableZoom={true}
                 minDistance={1.3}
-                maxDistance={10}
-                zoomSpeed={0.6}
+                maxDistance={50}
+                zoomSpeed={0.8}
                 rotateSpeed={0.5}
                 dampingFactor={0.08}
                 enableDamping
