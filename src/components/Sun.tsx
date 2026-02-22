@@ -33,7 +33,10 @@ export default function Sun({
     const sunPos = getSunPosition(time);
     const pos = raDecToXYZ(sunPos.ra, sunPos.dec, actualRadius);
 
-    const sz = isOrbit ? 1.0 : celestialRadius * 0.025;
+    // 디오라마 뷰(zoomProgress > 0)일 때, 거대한 태양이 멀리서도 직관적으로 보이도록 크기를 대폭 과장
+    const baseSz = isOrbit ? 1.0 : celestialRadius * 0.025;
+    const sz = baseSz + (isOrbit ? 8.0 * zoomProgress : 0);
+
     return { position: pos, size: sz };
   }, [time, celestialRadius, viewMode, zoomProgress]);
 

@@ -32,15 +32,16 @@ export default function Moon({
     const isOrbit = viewMode === "orbit";
     const baseRadius = isOrbit ? 9 : celestialRadius;
 
-    // 줌아웃 시 달은 지구(원점) 근처로 모이면서 희미해짐 (태양계 뷰에서는 보이지 않도록 거리 축소)
-    const actualRadius = baseRadius * (1 - zoomProgress * 0.95);
+    // 줌아웃(태양계 뷰) 시 달의 공전 궤도를 시각적으로 넓혀 지구와 달의 관계성을 명확히 함
+    const actualRadius = baseRadius * (1 + zoomProgress * 4.0);
 
     const moonPos = getMoonPosition(time);
     const pos = raDecToXYZ(moonPos.ra, moonPos.dec, actualRadius);
 
-    // 지면 모드에서는 실제 천구 비율, 궤도 모드에서는 과장. 줌아웃 시 크기도 소폭 감소
+    // 지면 모드에서는 실제 천구 비율, 궤도 모드에서는 과장. 
+    // 줌아웃 시 달이 점이 되지 않고 지구 주위를 도는 위성임이 잘 보이도록 크기도 대폭 확대
     const sz =
-      (isOrbit ? 0.35 : celestialRadius * 0.015) * (1 - zoomProgress * 0.8);
+      (isOrbit ? 0.35 : celestialRadius * 0.015) * (1 + zoomProgress * 3.5);
     const phaseAngle = getMoonPhaseAngle(time);
 
     let label = "";
