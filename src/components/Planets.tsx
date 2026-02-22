@@ -10,6 +10,7 @@ interface PlanetsProps {
   time: Date;
   celestialRadius: number;
   viewMode?: "orbit" | "ground";
+  zoomProgress: number;
 }
 
 /**
@@ -21,12 +22,10 @@ export default function Planets({
   time,
   celestialRadius,
   viewMode,
+  zoomProgress,
 }: PlanetsProps) {
   const planetCanvases = useMemo(() => {
-    const dict: Record<
-      string,
-      { glow: HTMLCanvasElement; label: HTMLCanvasElement }
-    > = {};
+    const dict: Record<string, HTMLCanvasElement> = {};
     PLANET_INFO.forEach((planet) => {
       // 글로우 캔버스
       const glowCanvas = document.createElement("canvas");
@@ -40,40 +39,42 @@ export default function Planets({
       gCtx.fillStyle = gradient;
       gCtx.fillRect(0, 0, 64, 64);
 
-      // 라벨 캔버스
-      const labelCanvas = document.createElement("canvas");
-      labelCanvas.width = 160;
-      labelCanvas.height = 64;
-      const lCtx = labelCanvas.getContext("2d")!;
-      lCtx.fillStyle = planet.color;
-      lCtx.font = "bold 26px Inter, system-ui, sans-serif";
-      lCtx.textAlign = "center";
-      lCtx.textBaseline = "middle";
-      lCtx.fillText(planet.label, 80, 32);
-
-      dict[planet.name] = { glow: glowCanvas, label: labelCanvas };
+      dict[planet.name] = glowCanvas;
     });
     return dict;
   }, []);
 
   const planets = useMemo(() => {
     const isOrbit = viewMode === "orbit";
-    // 수성부터 토성까지 다른 거리감을 약간 줌
-    const radii = [12, 14, 20, 24, 28];
-
     return PLANET_INFO.map((info, idx) => {
-      const actualRadius = isOrbit ? radii[idx] : celestialRadius;
       const pos = getPlanetPosition(info.body, time);
+
+      // 기본 반지름 (천구 표면용 / 궤도 모드 과장용)
+      const baseRadius = isOrbit ? [12, 14, 20, 24, 28][idx] : celestialRadius;
+
+      // 태양계 보기 시 실제 궤도 반지름 (SolarSystemView의 궤도선과 일치하도록 매핑)
+      const targetRadius = [12, 14, 20, 24, 28][idx];
+
+      // 선형 보간 (0일 땐 지구 곁, 1일 땐 분산된 태양계 궤도 반경)
+      const actualRadius =
+        baseRadius + (targetRadius - baseRadius) * zoomProgress;
+
       const xyz = raDecToXYZ(pos.ra, pos.dec, actualRadius);
 
-      const baseSize = isOrbit ? 0.35 : celestialRadius * 0.01;
+      // 크기 조절: 태양계 확대 시에는 기본 행성보다 작게(또는 유지)하여 스케일감 부여
+      const baseSize = isOrbit
+        ? 0.05 * (1 - zoomProgress * 0.5)
+        : celestialRadius * 0.003;
+      // 거리에 반비례하여 크기 계산 (가까울수록 크게) - 1 / sqrt(AU_거리)
+      const distScale = Math.max(0.4, Math.min(1.8, 1 / Math.sqrt(pos.dist)));
+
       return {
         ...info,
         position: xyz as [number, number, number],
-        size: baseSize * info.sizeScale,
+        size: baseSize * info.sizeScale * distScale,
       };
     });
-  }, [time, celestialRadius, viewMode]);
+  }, [time, celestialRadius, viewMode, zoomProgress]);
 
   return (
     <>
@@ -93,23 +94,7 @@ export default function Planets({
               depthWrite={false}
               blending={AdditiveBlending}
             >
-              <canvasTexture
-                attach="map"
-                image={planetCanvases[planet.name].glow}
-              />
-            </spriteMaterial>
-          </sprite>
-
-          {/* 라벨 */}
-          <sprite
-            position={[0, planet.size * 3.5, 0]}
-            scale={[planet.size * 5, planet.size * 2, 1]}
-          >
-            <spriteMaterial transparent opacity={0.85} depthTest={false}>
-              <canvasTexture
-                attach="map"
-                image={planetCanvases[planet.name].label}
-              />
+              <canvasTexture attach="map" image={planetCanvases[planet.name]} />
             </spriteMaterial>
           </sprite>
         </group>

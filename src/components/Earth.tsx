@@ -11,6 +11,7 @@ interface EarthProps {
   onSelect: (loc: { lat: number; lon: number }) => void;
   viewMode: "orbit" | "ground";
   time: Date;
+  zoomProgress: number;
 }
 
 /**
@@ -22,6 +23,7 @@ export default function Earth({
   onSelect,
   viewMode,
   time,
+  zoomProgress,
 }: EarthProps) {
   const groupRef = useRef<Group>(null);
   const EARTH_RADIUS = 1;
@@ -52,6 +54,7 @@ export default function Earth({
 
   const handleClick = (e: ThreeEvent<MouseEvent>) => {
     if (viewMode !== "orbit") return;
+    if (zoomProgress > 0.05) return; // 태양계 뷰 상태에서는 클릭(미니 천구 수렴) 무시
 
     if (pointerDownPos.current) {
       const dx = e.screenX - pointerDownPos.current.x;
@@ -87,34 +90,39 @@ export default function Earth({
         <meshStandardMaterial map={dayMap} roughness={0.8} metalness={0} />
       </mesh>
 
-      {/* ── 국가 경계선 (Natural Earth GeoJSON) ── */}
-      <CountryBorders radius={EARTH_RADIUS} />
+      {/* ── 줌아웃이 아닐 때만 렌더링 (최적화) ── */}
+      {zoomProgress < 0.05 && (
+        <>
+          {/* ── 국가 경계선 (Natural Earth GeoJSON) ── */}
+          <CountryBorders radius={EARTH_RADIUS} />
 
-      {/* ── 도시/국가 라벨 ── */}
-      <CityLabels radius={EARTH_RADIUS} />
+          {/* ── 도시/국가 라벨 ── */}
+          <CityLabels radius={EARTH_RADIUS} />
 
-      {/* ── 선택된 위치 마커 ── */}
-      {selectedLocation && (
-        <group
-          position={latLonToVector3(
-            selectedLocation.lat,
-            selectedLocation.lon,
-            EARTH_RADIUS,
+          {/* ── 선택된 위치 마커 ── */}
+          {selectedLocation && (
+            <group
+              position={latLonToVector3(
+                selectedLocation.lat,
+                selectedLocation.lon,
+                EARTH_RADIUS,
+              )}
+            >
+              <mesh>
+                <sphereGeometry args={[0.2, 32, 32]} />
+                <meshBasicMaterial
+                  color="#4488ff"
+                  wireframe={true}
+                  transparent={true}
+                  opacity={0.25}
+                  depthTest={true}
+                  polygonOffset={true}
+                  polygonOffsetFactor={-1}
+                />
+              </mesh>
+            </group>
           )}
-        >
-          <mesh>
-            <sphereGeometry args={[0.2, 32, 32]} />
-            <meshBasicMaterial
-              color="#4488ff"
-              wireframe={true}
-              transparent={true}
-              opacity={0.25}
-              depthTest={true}
-              polygonOffset={true}
-              polygonOffsetFactor={-1}
-            />
-          </mesh>
-        </group>
+        </>
       )}
     </group>
   );

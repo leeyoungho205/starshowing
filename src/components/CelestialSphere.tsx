@@ -22,6 +22,7 @@ interface CelestialSphereProps {
   viewMode: "orbit" | "ground";
   selectedLocation: { lat: number; lon: number } | null;
   time: Date;
+  zoomProgress?: number;
 }
 
 function raDecToXYZ(
@@ -68,6 +69,7 @@ export default function CelestialSphere({
   viewMode,
   selectedLocation,
   time,
+  zoomProgress = 0,
 }: CelestialSphereProps) {
   const groupRef = useRef<Group>(null);
   const starMeshRefs = useRef<(Mesh | null)[]>([]);
@@ -449,13 +451,19 @@ if (vWorldPosition.y < 0.0) {
       <primitive object={linesMesh} />
 
       {/* ── 태양 ── */}
-      <Sun time={time} celestialRadius={CELESTIAL_RADIUS} viewMode={viewMode} />
+      <Sun
+        time={time}
+        celestialRadius={CELESTIAL_RADIUS}
+        viewMode={viewMode}
+        zoomProgress={zoomProgress}
+      />
 
       {/* ── 달 ── */}
       <Moon
         time={time}
         celestialRadius={CELESTIAL_RADIUS}
         viewMode={viewMode}
+        zoomProgress={zoomProgress}
       />
 
       {/* ── 행성 ── */}
@@ -463,6 +471,7 @@ if (vWorldPosition.y < 0.0) {
         time={time}
         celestialRadius={CELESTIAL_RADIUS}
         viewMode={viewMode}
+        zoomProgress={zoomProgress}
       />
     </group>
   );

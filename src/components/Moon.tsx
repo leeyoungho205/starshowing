@@ -11,6 +11,7 @@ interface MoonProps {
   time: Date;
   celestialRadius: number;
   viewMode?: "orbit" | "ground";
+  zoomProgress: number;
 }
 
 /**
@@ -19,18 +20,27 @@ interface MoonProps {
  * - 위상(phase) 표현 (반구 그림자 마스크)
  * - 천구 반지름 위에 배치
  */
-export default function Moon({ time, celestialRadius, viewMode }: MoonProps) {
+export default function Moon({
+  time,
+  celestialRadius,
+  viewMode,
+  zoomProgress,
+}: MoonProps) {
   const moonTexture = useLoader(TextureLoader, "/textures/moon.webp");
 
   const { position, size, phase, phaseLabel } = useMemo(() => {
     const isOrbit = viewMode === "orbit";
-    const actualRadius = isOrbit ? 9 : celestialRadius;
+    const baseRadius = isOrbit ? 9 : celestialRadius;
+
+    // 줌아웃 시 달은 지구(원점) 근처로 모이면서 희미해짐 (태양계 뷰에서는 보이지 않도록 거리 축소)
+    const actualRadius = baseRadius * (1 - zoomProgress * 0.95);
 
     const moonPos = getMoonPosition(time);
     const pos = raDecToXYZ(moonPos.ra, moonPos.dec, actualRadius);
 
-    // 지면 모드에서는 실제 천구 비율, 궤도 모드에서는 과장하여 잘 보이게 설정
-    const sz = isOrbit ? 0.35 : celestialRadius * 0.015;
+    // 지면 모드에서는 실제 천구 비율, 궤도 모드에서는 과장. 줌아웃 시 크기도 소폭 감소
+    const sz =
+      (isOrbit ? 0.35 : celestialRadius * 0.015) * (1 - zoomProgress * 0.8);
     const phaseAngle = getMoonPhaseAngle(time);
 
     let label = "";
@@ -118,7 +128,12 @@ export default function Moon({ time, celestialRadius, viewMode }: MoonProps) {
 
       {/* 달 라벨 */}
       <sprite position={[0, size * 3, 0]} scale={[size * 4, size * 2, 1]}>
-        <spriteMaterial transparent opacity={0.85} depthTest={false}>
+        <spriteMaterial
+          transparent
+          opacity={0.85}
+          depthTest={true}
+          depthWrite={false}
+        >
           <canvasTexture attach="map" image={labelCanvas} />
         </spriteMaterial>
       </sprite>

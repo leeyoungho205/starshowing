@@ -6,6 +6,7 @@ interface SunProps {
   time: Date;
   celestialRadius: number;
   viewMode?: "orbit" | "ground";
+  zoomProgress: number;
 }
 
 /**
@@ -14,17 +15,25 @@ interface SunProps {
  * - 천구 반지름 위에 배치
  * - 시간에 따라 위치 변경
  */
-export default function Sun({ time, celestialRadius, viewMode }: SunProps) {
+export default function Sun({
+  time,
+  celestialRadius,
+  viewMode,
+  zoomProgress,
+}: SunProps) {
   const { position, size } = useMemo(() => {
     const isOrbit = viewMode === "orbit";
-    const actualRadius = isOrbit ? 18 : celestialRadius;
+    const baseRadius = isOrbit ? 18 : celestialRadius;
+
+    // Zoom Out 상태일 때: 지구 궤도 밖으로 나아가면서 태양계 중심(0,0,0)으로 이동
+    const actualRadius = baseRadius * (1 - zoomProgress);
 
     const sunPos = getSunPosition(time);
     const pos = raDecToXYZ(sunPos.ra, sunPos.dec, actualRadius);
 
     const sz = isOrbit ? 1.0 : celestialRadius * 0.025;
     return { position: pos, size: sz };
-  }, [time, celestialRadius, viewMode]);
+  }, [time, celestialRadius, viewMode, zoomProgress]);
 
   // ── 캔버스 텍스처 캐싱 (1회 생성) ──
   const innerGlowCanvas = useMemo(() => {
@@ -53,19 +62,6 @@ export default function Sun({ time, celestialRadius, viewMode }: SunProps) {
     gradient.addColorStop(1, "rgba(255, 180, 50, 0)");
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, 128, 128);
-    return canvas;
-  }, []);
-
-  const labelCanvas = useMemo(() => {
-    const canvas = document.createElement("canvas");
-    canvas.width = 128;
-    canvas.height = 64;
-    const ctx = canvas.getContext("2d")!;
-    ctx.fillStyle = "#FFD54F";
-    ctx.font = "bold 32px Inter, system-ui, sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("☀ 태양", 64, 32);
     return canvas;
   }, []);
 
@@ -98,13 +94,6 @@ export default function Sun({ time, celestialRadius, viewMode }: SunProps) {
           depthWrite={false}
         >
           <canvasTexture attach="map" image={outerGlowCanvas} />
-        </spriteMaterial>
-      </sprite>
-
-      {/* 태양 라벨 */}
-      <sprite position={[0, size * 3, 0]} scale={[size * 4, size * 2, 1]}>
-        <spriteMaterial transparent opacity={0.9} depthTest={false}>
-          <canvasTexture attach="map" image={labelCanvas} />
         </spriteMaterial>
       </sprite>
     </group>
