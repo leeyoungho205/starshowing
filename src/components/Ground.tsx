@@ -150,7 +150,7 @@ export default function Ground() {
   }, []); // No dependencies, as degrees are static
 
   return (
-    <group>
+    <group position={[0, -30, 0]}>
       {/* ── 지면 바닥 (불투명도 높임 - 지평선 아래 별자리가 살짝만 보임) ── */}
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}

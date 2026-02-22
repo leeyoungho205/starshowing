@@ -30,18 +30,18 @@ export default function Moon({
 
   const { position, size, phase, phaseLabel } = useMemo(() => {
     const isOrbit = viewMode === "orbit";
-    const baseRadius = isOrbit ? 9 : celestialRadius;
-
-    // 줌아웃(태양계 뷰) 시 달의 공전 궤도를 시각적으로 넓혀 지구와 달의 관계성을 명확히 함
-    const actualRadius = baseRadius * (1 + zoomProgress * 4.0);
+    // 1. 달의 궤도 반경: 교육용 Orrery 목적에 맞게 지구와 겹치지 않도록 반경 8로 설정
+    const baseRadius = celestialRadius * 0.99;
+    const moonTargetRadius = 8;
+    const actualRadius = isOrbit ? baseRadius + (moonTargetRadius - baseRadius) * zoomProgress : baseRadius;
 
     const moonPos = getMoonPosition(time);
     const pos = raDecToXYZ(moonPos.ra, moonPos.dec, actualRadius);
 
-    // 지면 모드에서는 실제 천구 비율, 궤도 모드에서는 과장. 
-    // 줌아웃 시 달이 점이 되지 않고 지구 주위를 도는 위성임이 잘 보이도록 크기도 대폭 확대
-    const sz =
-      (isOrbit ? 0.35 : celestialRadius * 0.015) * (1 + zoomProgress * 3.5);
+    // 2. 달의 크기: 지구(반지름 1) 대비 무조건 1/4 크기인 0.25로 엄격히 고정
+    const baseSz = celestialRadius * 0.015;
+    const targetSz = 0.25;
+    const sz = isOrbit ? targetSz : baseSz;
     const phaseAngle = getMoonPhaseAngle(time);
 
     let label = "";
@@ -54,8 +54,10 @@ export default function Moon({
     else if (phaseAngle < 292.5) label = "🌗 하현달";
     else label = "🌘 그믐달";
 
-    return { position: pos, size: sz, phase: phaseAngle, phaseLabel: label };
-  }, [time, celestialRadius]);
+    return { position: pos, size: sz, phase: phaseAngle, phaseLabel: label, actualRadius };
+  }, [time, celestialRadius, viewMode, zoomProgress]);
+
+  // 달 궤도선 Geometry 캐싱 (삭제됨)
 
   // 밝기: 보름달(180°)에서 최대, 신월(0°/360°)에서 최소
   const brightness = useMemo(() => {
@@ -91,53 +93,57 @@ export default function Moon({
   }, [phaseLabel]);
 
   return (
-    <group position={position}>
-      {/* 달 본체 — NASA 텍스처 */}
-      <mesh>
-        <sphereGeometry args={[size, 32, 32]} />
-        <meshStandardMaterial
-          map={moonTexture}
-          emissive="#ffffff"
-          emissiveIntensity={brightness * 0.4}
-          emissiveMap={moonTexture}
-          roughness={1}
-          metalness={0}
-        />
-      </mesh>
+    <group>
+      {/* 태양계 뷰 전용: 달 궤도선 (삭제됨) */}
 
-      {/* 달 그림자 (위상 표현) - 반구 마스크 */}
-      <mesh rotation={[0, (phase / 180) * Math.PI, 0]}>
-        <sphereGeometry args={[size * 1.01, 32, 32, 0, Math.PI]} />
-        <meshBasicMaterial
-          color="#111111"
-          transparent
-          opacity={0.75}
-          side={DoubleSide}
-        />
-      </mesh>
+      <group position={position}>
+        {/* 달 본체 — NASA 텍스처 */}
+        <mesh>
+          <sphereGeometry args={[size, 32, 32]} />
+          <meshStandardMaterial
+            map={moonTexture}
+            emissive="#ffffff"
+            emissiveIntensity={brightness * 0.4}
+            emissiveMap={moonTexture}
+            roughness={1}
+            metalness={0}
+          />
+        </mesh>
 
-      {/* 달 글로우 */}
-      <sprite scale={[size * 5, size * 5, 1]}>
-        <spriteMaterial
-          transparent
-          opacity={brightness * 0.3}
-          depthWrite={false}
-        >
-          <canvasTexture attach="map" image={glowCanvas} />
-        </spriteMaterial>
-      </sprite>
+        {/* 달 그림자 (위상 표현) - 반구 마스크 */}
+        <mesh rotation={[0, (phase / 180) * Math.PI, 0]}>
+          <sphereGeometry args={[size * 1.01, 32, 32, 0, Math.PI]} />
+          <meshBasicMaterial
+            color="#111111"
+            transparent
+            opacity={0.75}
+            side={DoubleSide}
+          />
+        </mesh>
 
-      {/* 달 라벨 */}
-      <sprite position={[0, size * 3, 0]} scale={[size * 4, size * 2, 1]}>
-        <spriteMaterial
-          transparent
-          opacity={0.85}
-          depthTest={true}
-          depthWrite={false}
-        >
-          <canvasTexture attach="map" image={labelCanvas} />
-        </spriteMaterial>
-      </sprite>
+        {/* 달 글로우 */}
+        <sprite scale={[size * 5, size * 5, 1]}>
+          <spriteMaterial
+            transparent
+            opacity={brightness * 0.3}
+            depthWrite={false}
+          >
+            <canvasTexture attach="map" image={glowCanvas} />
+          </spriteMaterial>
+        </sprite>
+
+        {/* 달 라벨 */}
+        <sprite position={[0, size * 3, 0]} scale={[size * 4, size * 2, 1]}>
+          <spriteMaterial
+            transparent
+            opacity={0.85}
+            depthTest={true}
+            depthWrite={false}
+          >
+            <canvasTexture attach="map" image={labelCanvas} />
+          </spriteMaterial>
+        </sprite>
+      </group>
     </group>
   );
 }

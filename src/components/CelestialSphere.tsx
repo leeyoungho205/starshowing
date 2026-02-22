@@ -284,6 +284,25 @@ if (vWorldPosition.y < 0.0) {
   useFrame((_state, delta) => {
     if (!groupRef.current) return;
 
+    // 별 투명도 조절 (줌아웃 시 서서히 투명하게)
+    const starOpacityFactor = Math.max(0, 1 - zoomProgress * 1.5);
+    (starMaterials.bright as any).opacity = 0.95 * starOpacityFactor;
+    (starMaterials.medium as any).opacity = 0.8 * starOpacityFactor;
+    (starMaterials.dim as any).opacity = 0.6 * starOpacityFactor;
+
+    // 별자리 선 투명도 조절 (궤도 모드일 때 조금 더 진하게, 줌아웃 시 완전히 투명하게)
+    const linesMat = linesMesh.material as LineBasicMaterial;
+    const baseLinesOpacity = viewMode === "orbit" ? 0.4 : 0.1;
+    linesMat.opacity = baseLinesOpacity * starOpacityFactor;
+    linesMesh.visible = starOpacityFactor > 0.01;
+
+    // 개별 별 mesh에 대해서도 완전히 투명해지면 렌더링을 끕니다
+    for (let i = 0; i < STARS.length; i++) {
+      if (starMeshRefs.current[i]) {
+        starMeshRefs.current[i]!.visible = starOpacityFactor > 0.01;
+      }
+    }
+
     if (viewMode === "ground" && selectedLocation) {
       // ── Ground 모드: 천구를 LMST 기반으로 회전 ──
       // 관측자는 원점(0,0,0)에 있고 천구가 관측자 주위를 감쌈

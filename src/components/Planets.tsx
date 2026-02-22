@@ -84,14 +84,14 @@ export default function Planets({
           {/* 행성 본체 */}
           <mesh>
             <sphereGeometry args={[planet.size, 12, 12]} />
-            <meshBasicMaterial color={planet.color} />
+            <meshBasicMaterial color={planet.color} transparent opacity={Math.max(0, 1 - zoomProgress * 1.5)} />
           </mesh>
 
           {/* 글로우 */}
           <sprite scale={[planet.size * 6, planet.size * 6, 1]}>
             <spriteMaterial
               transparent
-              opacity={0.5}
+              opacity={0.5 * Math.max(0, 1 - zoomProgress * 1.5)}
               depthWrite={false}
               blending={AdditiveBlending}
             >

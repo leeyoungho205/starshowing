@@ -10,7 +10,7 @@ import SolarSystemView from "./SolarSystemView";
 import Ground from "./Ground";
 import GroundCamera from "./GroundCamera";
 import type { ViewMode } from "../App";
-import { getSunPosition, raDecToXYZ } from "../utils/celestialCalc";
+import { getSunPosition, getMoonPosition, raDecToXYZ } from "../utils/celestialCalc";
 
 interface SceneContainerProps {
     viewMode: ViewMode;
@@ -21,29 +21,46 @@ interface SceneContainerProps {
 
 function OrbitCameraRig({
     zoomProgress,
-    sunLightPosition,
+    time
 }: {
     zoomProgress: number;
-    sunLightPosition: [number, number, number];
+    time: Date;
 }) {
     const controlsRef = useRef<OrbitControlsImpl>(null);
 
     useFrame(() => {
         if (controlsRef.current) {
-            // 태양계 중심으로 시점을 살짝 이동 (전체 조망을 위함)
-            // 태양 방향으로 50% 정도 당겨서 지구와 태양계를 전체적으로 화면에 담음
-            const targetX = sunLightPosition[0] * 0.5 * zoomProgress;
-            // 카메라가 위에서 비스듬히 내려다보도록 Y 타겟을 살짝 낮게(상대적으로 카메라가 올라가게)
-            const targetY = (sunLightPosition[1] * 0.5 - 20) * zoomProgress;
-            const targetZ = sunLightPosition[2] * 0.5 * zoomProgress;
+            // 태양계 디오라마 뷰에서는 지구(0,0,0), 달, 태양 세 천체가 모두 화면에 나오도록 
+            // 세 천체의 중심점(Centroid)을 카메라 타겟으로 삼음
+
+            // 1. 달의 현재 위치 계산 (Moon.tsx 와 동일한 궤도 왜곡 적용)
+            getMoonPosition(time);
+
+            // 2. 태양의 현재 위치 계산 (Sun.tsx 와 동일한 궤도 왜곡 적용)
+            const sunBaseRadius = 15;
+            const sunTargetRadius = 50;
+            const sunActualRadius = sunBaseRadius + (sunTargetRadius - sunBaseRadius) * zoomProgress;
+            const sunP = getSunPosition(time);
+            const [sx, sy, sz] = raDecToXYZ(sunP.ra, sunP.dec, sunActualRadius);
+
+            // 3. 태양을 카메라 타겟(중심)으로 설정하여 지구가 태양을 도는 것처럼 연출
+            const targetX = sx * zoomProgress;
+            const targetY = sy * zoomProgress;
+            const targetZ = sz * zoomProgress;
 
             controlsRef.current.target.lerp(new THREE.Vector3(targetX, targetY, targetZ), 0.1);
 
-            // 줌아웃이 심화될수록 지평선(수평) 각도 제한을 풀어 위에서 아래로(Top-down) 내려다볼 수 있게 허용
-            // 기본은 지평선(Math.PI/2)에서 멈추지만 태양계 뷰에서는 제한을 둔다.
-            const baseMaxPolar = Math.PI / 2; // 지면 아래로 내려가지 않도록 
-            // 줌아웃 시에는 자유로운 조망을 위해 풀어줌
-            controlsRef.current.maxPolarAngle = baseMaxPolar + (Math.PI - baseMaxPolar) * zoomProgress;
+            // 4. 탑다운(위에서 아래로 내려다보는) 시점 강제 및 드래그 제한
+            // 기본(0)에서는 지평선(Math.PI / 2)까지 자유롭지만, 줌아웃(1) 시에는 위에서 내려다보는 좁은 각도(30도 ~ 45도)로 제한
+            const baseMinPolar = 0;
+            const targetMinPolar = Math.PI / 6; // 30도
+
+            const baseMaxPolar = Math.PI / 2;
+            const targetMaxPolar = Math.PI / 4; // 45도
+
+            const smoothZoom = Math.pow(zoomProgress, 0.5);
+            controlsRef.current.minPolarAngle = baseMinPolar + (targetMinPolar - baseMinPolar) * smoothZoom;
+            controlsRef.current.maxPolarAngle = baseMaxPolar - (baseMaxPolar - targetMaxPolar) * smoothZoom;
         }
     });
 
@@ -58,12 +75,12 @@ function OrbitCameraRig({
             />
             <OrbitControls
                 ref={controlsRef}
+                makeDefault
                 enablePan={false}
                 enableZoom={true}
                 minDistance={1.3}
-                maxDistance={50}
-                zoomSpeed={0.8}
-                rotateSpeed={0.5}
+                maxDistance={90} // 줌아웃이 계속되어 비율이 이상해지는 것을 방지 (단단한 브레이크)
+                zoomSpeed={1.0}
                 dampingFactor={0.08}
                 enableDamping
             />
@@ -86,7 +103,7 @@ export default function SceneContainer({
     }, [time]);
 
     // 태양계 줌아웃 애니메이션 진행도 (0 = 지구 중심 뷰, 1 = 태양계 전체 뷰)
-    const [isZoomedOut, setIsZoomedOut] = useState(false);
+    const [, setIsZoomedOut] = useState(false);
     const [zoomProgress, setZoomProgress] = useState(0);
 
     return (
@@ -139,14 +156,16 @@ export default function SceneContainer({
                             setZoomProgress={setZoomProgress}
                         />
 
-                        <OrbitCameraRig zoomProgress={zoomProgress} sunLightPosition={sunLightPosition} />
+                        <OrbitCameraRig
+                            zoomProgress={zoomProgress}
+                            time={time}
+                        />
                     </>
                 ) : (
                     <>
                         {/* ── Ground 모드 ── */}
                         <PerspectiveCamera
                             makeDefault
-                            position={[0, 0, 0]}
                             fov={75}
                             near={0.1}
                             far={500}

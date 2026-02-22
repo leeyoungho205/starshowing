@@ -18,9 +18,12 @@ interface UIOverlayProps {
 
 const SPEED_OPTIONS = [
     { label: '1x', value: 1 },
-    { label: '1분/초', value: 60 },
     { label: '10분/초', value: 600 },
     { label: '1시간/초', value: 3600 },
+    { label: '10시간/초', value: 36000 },
+    { label: '1일/초', value: 86400 },
+    { label: '1주일/초', value: 604800 },
+    { label: '1개월/초', value: 2592000 },
 ]
 
 const LOCATION_PRESETS = [

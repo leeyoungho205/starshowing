@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { AdditiveBlending } from "three";
+import * as THREE from "three";
 import { getSunPosition, raDecToXYZ } from "../utils/celestialCalc";
 
 interface SunProps {
@@ -21,23 +22,38 @@ export default function Sun({
   viewMode,
   zoomProgress,
 }: SunProps) {
-  const { position, size } = useMemo(() => {
+  const { position, size, earthOrbitGeometry } = useMemo(() => {
     const isOrbit = viewMode === "orbit";
-    const baseRadius = isOrbit ? 18 : celestialRadius;
 
-    // Zoom Out 상태일 때: 지구 밖으로 아득히 멀리 떨어지는 거대한 공간감 연출
-    // 기존에는 0(중심)으로 모였으나, 디오라마 느낌을 위해 태양을 가장 멀리(수성~토성 궤도 밖) 배치
-    const targetRadius = 150;
-    const actualRadius = baseRadius + (targetRadius - baseRadius) * zoomProgress;
+    // 태양계 모드에서는 크기 과장 (너무 커서 어색하지 않게 적당한 크기 6배 수준으로)
+    const sz = isOrbit ? 1.0 + 5.0 * zoomProgress : 1.0;
+
+    // 태양계를 쾌적하게 한눈에 보기 위한 태양 거리 (60)
+    const sunTargetRadius = 60;
+    const actualRadius = isOrbit ? sunTargetRadius : celestialRadius;
 
     const sunPos = getSunPosition(time);
     const pos = raDecToXYZ(sunPos.ra, sunPos.dec, actualRadius);
 
-    // 디오라마 뷰(zoomProgress > 0)일 때, 거대한 태양이 멀리서도 직관적으로 보이도록 크기를 대폭 과장
-    const baseSz = isOrbit ? 1.0 : celestialRadius * 0.025;
-    const sz = baseSz + (isOrbit ? 8.0 * zoomProgress : 0);
+    // 완벽한 지구 공전 궤도선 (태양 중심 기준)
+    // 태양의 적위(Declination) 때문에 태양은 XZ 평면에 있지 않습니다.
+    // 궤도선이 정확히 지구(0,0,0)를 지나가게 하려면 단순한 2D 타원이 아니라, 1년치 상대 궤적을 3D로 그려야 합니다.
+    const points = [];
+    if (isOrbit) {
+      const d = new Date(time.getTime());
+      // 올해 기준으로 1년(365일) 궤적을 전부 계산
+      d.setMonth(0, 1);
+      for (let i = 0; i <= 365; i++) {
+        const sp = getSunPosition(d);
+        const p = raDecToXYZ(sp.ra, sp.dec, sunTargetRadius);
+        // 지구 입장에서 태양의 위치가 p라면, 태양 입장에서 지구의 위치는 -p 입니다.
+        points.push(new THREE.Vector3(-p[0], -p[1], -p[2]));
+        d.setDate(d.getDate() + 1);
+      }
+    }
+    const earthOrbitGeometry = new THREE.BufferGeometry().setFromPoints(points);
 
-    return { position: pos, size: sz };
+    return { position: pos, size: sz, earthOrbitGeometry };
   }, [time, celestialRadius, viewMode, zoomProgress]);
 
   // ── 캔버스 텍스처 캐싱 (1회 생성) ──
@@ -101,6 +117,14 @@ export default function Sun({
           <canvasTexture attach="map" image={outerGlowCanvas} />
         </spriteMaterial>
       </sprite>
+
+      {/* 태양계 뷰 전용: 지구의 공전 궤도선 (태양 중심, 완벽한 3D 궤적) */}
+      {viewMode === "orbit" && (
+        <line>
+          <lineBasicMaterial attach="material" color="#4facfe" transparent opacity={zoomProgress * 0.35} depthWrite={false} />
+          <primitive attach="geometry" object={earthOrbitGeometry} />
+        </line>
+      )}
     </group>
   );
 }

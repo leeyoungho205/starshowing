@@ -1,8 +1,6 @@
-import { useRef, useEffect } from 'react'
-import { useThree, useFrame } from '@react-three/fiber'
-import { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
-import { OrbitControls } from '@react-three/drei'
-import { Vector3, MathUtils } from 'three'
+import { useEffect, useRef } from 'react'
+import { useThree } from '@react-three/fiber'
+import { MathUtils, Euler } from 'three'
 
 interface GroundCameraProps {
     selectedLocation: { lat: number; lon: number }
@@ -10,19 +8,22 @@ interface GroundCameraProps {
 
 /**
  * 지면 뷰 전용 카메라 컨트롤러
- *
- * 관측자를 원점(0,0,0)에 놓고:
- * - 천구의 북극(NCP) 방향 = 위도에 따라 고도각이 결정됨
- * - 초기 카메라: 북쪽 방향, 지평면 위 30°를 바라봄
- * - OrbitControls로 자유롭게 하늘을 둘러볼 수 있음
+ * 
+ * OrbitControls의 구형(Orbit) 제약을 우회하기 위해 
+ * 순수 마우스 드래그를 이용한 1인칭(First-Person) 파노라마 시점을 구현합니다.
  */
 export default function GroundCamera({ selectedLocation }: GroundCameraProps) {
-    const { camera } = useThree()
-    const controlsRef = useRef<OrbitControlsImpl>(null)
+    const { camera, gl } = useThree()
     const initialized = useRef(false)
     const prevLoc = useRef<{ lat: number; lon: number } | null>(null)
 
-    // 위치가 바뀌거나 처음 진입할 때 카메라 초기화
+    // 카메라 회전 상태 저장 (x: 고도, y: 방위각)
+    const rotationRef = useRef(new Euler(0, 0, 0, 'YXZ'))
+
+    // 포인터 상태
+    const isDragging = useRef(false)
+    const previousMousePosition = useRef({ x: 0, y: 0 })
+
     useEffect(() => {
         if (!selectedLocation) return
         if (prevLoc.current &&
@@ -33,44 +34,67 @@ export default function GroundCamera({ selectedLocation }: GroundCameraProps) {
         prevLoc.current = selectedLocation
         initialized.current = true
 
-        // 카메라를 원점에 배치
+        // 1. 카메라를 완전히 중심에 고정
         camera.position.set(0, 0, 0)
 
-        // 북쪽 방향, 지평면 위 30°를 바라보도록 target 설정
-        // 지면 좌표계: Y=위(천정), Z=남, X=서
-        // 북쪽 = -Z, 고도 30° = Y 방향으로 약간 올림
+        // 2. 초기 시선: 고도 30도 위, 북향 (Z-방향)
         const elevationRad = MathUtils.degToRad(30)
-        const lookDir = new Vector3(
-            0,
-            Math.sin(elevationRad),
-            -Math.cos(elevationRad) // 북쪽 = -Z
-        )
-        lookDir.normalize()
-
-        if (controlsRef.current) {
-            controlsRef.current.target.copy(lookDir.multiplyScalar(10))
-            controlsRef.current.update()
-        }
-
+        rotationRef.current.set(elevationRad, Math.PI, 0) // Math.PI for North
+        camera.quaternion.setFromEuler(rotationRef.current)
         camera.updateProjectionMatrix()
     }, [selectedLocation, camera])
 
-    // target을 항상 카메라로부터 일정 거리로 유지하면서 카메라는 원점에 고정
-    useFrame(() => {
-        if (!controlsRef.current) return
-        const dir = controlsRef.current.target.clone().sub(camera.position).normalize()
-        controlsRef.current.target.copy(dir.multiplyScalar(10))
-        camera.position.set(0, 0, 0)
-    })
+    useEffect(() => {
+        const domElement = gl.domElement
 
-    return (
-        <OrbitControls
-            ref={controlsRef}
-            enablePan={false}
-            enableZoom={false}
-            rotateSpeed={0.3}
-            enableDamping
-            dampingFactor={0.05}
-        />
-    )
+        const onPointerDown = (event: PointerEvent) => {
+            isDragging.current = true
+            previousMousePosition.current = { x: event.clientX, y: event.clientY }
+            domElement.setPointerCapture(event.pointerId)
+        }
+
+        const onPointerMove = (event: PointerEvent) => {
+            if (!isDragging.current) return
+
+            const deltaX = event.clientX - previousMousePosition.current.x
+            const deltaY = event.clientY - previousMousePosition.current.y
+
+            previousMousePosition.current = { x: event.clientX, y: event.clientY }
+
+            // 회전 감도
+            const sensitivity = 0.002
+
+            // 방위각 (수평 회전) - Y축 회전
+            rotationRef.current.y -= deltaX * sensitivity
+
+            // 고도 (수직 회전) - X축 회전
+            rotationRef.current.x -= deltaY * sensitivity
+
+            // 천정(위)과 발밑(아래) 시선 제한 (-90도 ~ 90도)
+            const PI_2 = Math.PI / 2
+            rotationRef.current.x = Math.max(-PI_2, Math.min(PI_2, rotationRef.current.x))
+
+            // 카메라에 반영 (YXZ 순서 적용으로 짐벌락 최소화)
+            camera.quaternion.setFromEuler(rotationRef.current)
+        }
+
+        const onPointerUp = (event: PointerEvent) => {
+            isDragging.current = false
+            domElement.releasePointerCapture(event.pointerId)
+        }
+
+        domElement.addEventListener('pointerdown', onPointerDown)
+        domElement.addEventListener('pointermove', onPointerMove)
+        domElement.addEventListener('pointerup', onPointerUp)
+        domElement.addEventListener('pointercancel', onPointerUp)
+
+        return () => {
+            domElement.removeEventListener('pointerdown', onPointerDown)
+            domElement.removeEventListener('pointermove', onPointerMove)
+            domElement.removeEventListener('pointerup', onPointerUp)
+            domElement.removeEventListener('pointercancel', onPointerUp)
+        }
+    }, [camera, gl.domElement])
+
+    return null
 }
