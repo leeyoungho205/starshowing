@@ -55,7 +55,7 @@ function OrbitCameraRig({
             const baseMinPolar = 0;
             const targetMinPolar = Math.PI / 6; // 30도
 
-            const baseMaxPolar = Math.PI / 2;
+            const baseMaxPolar = Math.PI; // 180 (남극까지 허용)
             const targetMaxPolar = Math.PI / 4; // 45도
 
             const smoothZoom = Math.pow(zoomProgress, 0.5);
@@ -166,9 +166,10 @@ export default function SceneContainer({
                         {/* ── Ground 모드 ── */}
                         <PerspectiveCamera
                             makeDefault
-                            fov={75}
+                            fov={70}
                             near={0.1}
                             far={500}
+                            rotation={[Math.PI / 9, 0, 0]}
                         />
 
                         {/* 약한 환경광 (밤하늘 분위기) */}

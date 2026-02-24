@@ -77,7 +77,7 @@ export default function CelestialSphere({
   const prevLocation = useRef<{ lat: number; lon: number } | null>(null);
 
   const CELESTIAL_RADIUS = 100;
-  const MINI_RADIUS = 0.2;
+  const MINI_RADIUS = 0.3;
 
   useEffect(() => {
     if (
@@ -404,8 +404,8 @@ if (vWorldPosition.y < 0.0) {
         const [ox, oy, oz] = starOriginals[i];
         const [mx, my, mz] = raDecToXYZ(STARS[i].ra, STARS[i].dec, MINI_RADIUS);
 
-        // 미니 천구 내부의 별들도 지구 자전에 맞춰 함께 회전 (교육용 효과)
-        _rotM.set(mx, my, mz).applyEuler(_eulerY);
+        // 미니 천구 내부의 별 좌표 (자전 효과 제거하여 궤적 보존)
+        _rotM.set(mx, my, mz);
 
         mesh.position.set(
           ox + (tx + _rotM.x - ox) * t,
@@ -414,7 +414,7 @@ if (vWorldPosition.y < 0.0) {
         );
         const origSize = starSizes[i];
         const miniSize =
-          STARS[i].mag < 1 ? 0.003 : STARS[i].mag < 2 ? 0.0022 : 0.0015;
+          STARS[i].mag < 1 ? 0.0045 : STARS[i].mag < 2 ? 0.0033 : 0.0023;
         mesh.scale.setScalar((origSize * (1 - t) + miniSize * t) / origSize);
       }
 
@@ -436,8 +436,9 @@ if (vWorldPosition.y < 0.0) {
             MINI_RADIUS,
           );
 
-          _rotSM.set(smx, smy, smz).applyEuler(_eulerY);
-          _rotEM.set(emx, emy, emz).applyEuler(_eulerY);
+          // 별자리 선도 자전 효과 제거
+          _rotSM.set(smx, smy, smz);
+          _rotEM.set(emx, emy, emz);
 
           const off = idx * 6;
           arr[off] = sox + (tx + _rotSM.x - sox) * t;

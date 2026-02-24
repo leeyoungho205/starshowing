@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
-import { useThree } from '@react-three/fiber'
-import { MathUtils, Euler } from 'three'
+import { useThree, useFrame } from '@react-three/fiber'
+import { Euler } from 'three'
 
 interface GroundCameraProps {
     selectedLocation: { lat: number; lon: number }
@@ -18,7 +18,8 @@ export default function GroundCamera({ selectedLocation }: GroundCameraProps) {
     const prevLoc = useRef<{ lat: number; lon: number } | null>(null)
 
     // 카메라 회전 상태 저장 (x: 고도, y: 방위각)
-    const rotationRef = useRef(new Euler(0, 0, 0, 'YXZ'))
+    // 초기 시선: 고도 20도 위 (Math.PI / 9), 북향 (0)
+    const rotationRef = useRef(new Euler(Math.PI / 9, 0, 0, 'YXZ'))
 
     // 포인터 상태
     const isDragging = useRef(false)
@@ -37,12 +38,17 @@ export default function GroundCamera({ selectedLocation }: GroundCameraProps) {
         // 1. 카메라를 완전히 중심에 고정
         camera.position.set(0, 0, 0)
 
-        // 2. 초기 시선: 고도 30도 위, 북향 (Z-방향)
-        const elevationRad = MathUtils.degToRad(30)
-        rotationRef.current.set(elevationRad, Math.PI, 0) // Math.PI for North
+        // 2. 초기 시선: 고도 20도 위, 북향 (0)
+        rotationRef.current.set(Math.PI / 9, 0, 0)
         camera.quaternion.setFromEuler(rotationRef.current)
         camera.updateProjectionMatrix()
     }, [selectedLocation, camera])
+
+    // 매 프레임마다 카메라 상태를 강제로 동기화 (React re-render에 의한 초기화 방지)
+    useFrame(() => {
+        camera.position.set(0, 0, 0)
+        camera.quaternion.setFromEuler(rotationRef.current)
+    })
 
     useEffect(() => {
         const domElement = gl.domElement

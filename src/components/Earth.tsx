@@ -109,7 +109,7 @@ export default function Earth({
               )}
             >
               <mesh>
-                <sphereGeometry args={[0.2, 32, 32]} />
+                <sphereGeometry args={[0.3, 32, 32]} />
                 <meshBasicMaterial
                   color="#4488ff"
                   wireframe={true}
