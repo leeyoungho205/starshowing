@@ -73,11 +73,26 @@ export default function CelestialSphere({
 }: CelestialSphereProps) {
   const groupRef = useRef<Group>(null);
   const starMeshRefs = useRef<(Mesh | null)[]>([]);
-  const animState = useRef({ progress: 0, isAnimating: false });
+  const animState = useRef<{ progress: number; isAnimating: boolean; fixedTarget?: Vector3 }>({ progress: 0, isAnimating: false });
   const prevLocation = useRef<{ lat: number; lon: number } | null>(null);
 
   const CELESTIAL_RADIUS = 100;
   const MINI_RADIUS = 0.3;
+
+  // 선택된 순간의 시간을 처음 한 번만 기억하여 타겟 위치를 지구 표면에 고정
+  // 이렇게 하면 플레이 중에 다른 위치를 클릭해도 지구본의 모습(각도)이 변하지 않습니다.
+  const frozenTimeRef = useRef<number | null>(null);
+  const prevSelLocRef = useRef<{ lat: number; lon: number } | null>(null);
+
+  if (selectedLocation) {
+    if (frozenTimeRef.current === null) {
+      frozenTimeRef.current = time.getTime();
+    }
+    prevSelLocRef.current = selectedLocation;
+  } else {
+    frozenTimeRef.current = null;
+    prevSelLocRef.current = null;
+  }
 
   useEffect(() => {
     if (
@@ -88,7 +103,7 @@ export default function CelestialSphere({
         prevLocation.current.lon !== selectedLocation.lon)
     ) {
       prevLocation.current = selectedLocation;
-      animState.current = { progress: 0, isAnimating: true };
+      animState.current = { progress: 0, isAnimating: true, fixedTarget: undefined };
     }
   }, [selectedLocation, viewMode]);
 
@@ -129,7 +144,7 @@ export default function CelestialSphere({
       }
       // Re-trigger convergence if location is selected
       if (selectedLocation) {
-        animState.current = { progress: 0, isAnimating: true };
+        animState.current = { progress: 0, isAnimating: true, fixedTarget: undefined };
       }
     }
   }, [viewMode]);
@@ -385,18 +400,31 @@ if (vWorldPosition.y < 0.0) {
       const gmstRad = gmstDeg * (Math.PI / 180);
       const earthRotY = gmstRad - Math.PI / 2;
 
-      _eulerY.set(0, earthRotY, 0);
+      // 미니 지구본 위에서 별자리가 일주운동하는 방향을 반대로(정상적인 시각적 흐름) 설정하기 위해 각도 반전
+      _eulerY.set(0, -earthRotY, 0);
 
-      // 선택된 위치(위경도)를 로컬 좌표로 변환 후 Earth의 현재 자전 각도 반영
-      const [rawTx, rawTy, rawTz] = latLonToXYZ(
-        selectedLocation.lat,
-        selectedLocation.lon,
-        1.0,
-      );
-      _targetVec.set(rawTx, rawTy, rawTz).applyEuler(_eulerY);
-      const tx = _targetVec.x;
-      const ty = _targetVec.y;
-      const tz = _targetVec.z;
+      // 타겟(미니 천구의 중심)은 클릭하여 얼어붙은 지구 표면과 정확히 일치해야 함.
+      // Earth.tsx와 동일한 frozenTime으로 지구 표면의 회전 멈춘 위치를 계산하여 _targetVec 고정
+      if (!animState.current.fixedTarget) {
+        const frozenTime = frozenTimeRef.current ? new Date(frozenTimeRef.current) : time;
+        const frozenGmstDeg = computeLMST(frozenTime, 0);
+        const frozenEarthRotY = (frozenGmstDeg * (Math.PI / 180)) - Math.PI / 2;
+        const frozenEulerY = new Euler(0, frozenEarthRotY, 0);
+
+        const [rawTx, rawTy, rawTz] = latLonToXYZ(
+          selectedLocation.lat,
+          selectedLocation.lon,
+          1.0,
+        );
+
+        // 멈춰있는 지구 모델과 일치하는 미니 천구 중심 월드 좌표 고정
+        _targetVec.set(rawTx, rawTy, rawTz).applyEuler(frozenEulerY);
+        animState.current.fixedTarget = _targetVec.clone();
+      }
+
+      const tx = animState.current.fixedTarget.x;
+      const ty = animState.current.fixedTarget.y;
+      const tz = animState.current.fixedTarget.z;
 
       for (let i = 0; i < STARS.length; i++) {
         const mesh = starMeshRefs.current[i];
@@ -404,8 +432,10 @@ if (vWorldPosition.y < 0.0) {
         const [ox, oy, oz] = starOriginals[i];
         const [mx, my, mz] = raDecToXYZ(STARS[i].ra, STARS[i].dec, MINI_RADIUS);
 
-        // 미니 천구 내부의 별 좌표 (자전 효과 제거하여 궤적 보존)
-        _rotM.set(mx, my, mz);
+        // 미니 천구 내부의 별 좌표
+        // 기존: 자전 효과 제거하여 궤적 보존 (_rotM.set(mx, my, mz);)
+        // 변경: 시간에 따른 일주운동(Earth rotation)을 미니 천구에도 적용하여 별자리가 움직이게 함
+        _rotM.set(mx, my, mz).applyEuler(_eulerY);
 
         mesh.position.set(
           ox + (tx + _rotM.x - ox) * t,
@@ -436,9 +466,9 @@ if (vWorldPosition.y < 0.0) {
             MINI_RADIUS,
           );
 
-          // 별자리 선도 자전 효과 제거
-          _rotSM.set(smx, smy, smz);
-          _rotEM.set(emx, emy, emz);
+          // 별자리 선도 자전 효과(일주운동) 적용
+          _rotSM.set(smx, smy, smz).applyEuler(_eulerY);
+          _rotEM.set(emx, emy, emz).applyEuler(_eulerY);
 
           const off = idx * 6;
           arr[off] = sox + (tx + _rotSM.x - sox) * t;

@@ -80,7 +80,23 @@ export default function Earth({
     onSelect({ lat, lon });
   };
 
-  const gmstRad = computeLMST(time, 0) * (Math.PI / 180);
+  // 선택된 순간의 시간을 처음 한 번만 기억하여 지구 자전을 멈춥니다.
+  // 이렇게 하면 플레이 중에 다른 위치를 클릭해도 지구본의 모습(각도)이 변하지 않습니다.
+  const frozenTimeRef = useRef<number | null>(null);
+  const prevSelLocRef = useRef<{ lat: number; lon: number } | null>(null);
+
+  if (selectedLocation) {
+    if (frozenTimeRef.current === null) {
+      frozenTimeRef.current = time.getTime();
+    }
+    prevSelLocRef.current = selectedLocation;
+  } else {
+    frozenTimeRef.current = null;
+    prevSelLocRef.current = null;
+  }
+
+  const effectiveTime = frozenTimeRef.current ? new Date(frozenTimeRef.current) : time;
+  const gmstRad = computeLMST(effectiveTime, 0) * (Math.PI / 180);
 
   return (
     <group ref={groupRef} rotation={[0, gmstRad - Math.PI / 2, 0]}>
