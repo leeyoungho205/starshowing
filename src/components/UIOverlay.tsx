@@ -418,8 +418,12 @@ export default function UIOverlay({
                             textAlign: 'center',
                             color: 'rgba(255,255,255,0.45)',
                             fontSize: '12px',
+                            lineHeight: 1.8,
                         }}>
-                            제작자: 고경초등학교 이영호
+                            <div>제작자: 고경초등학교 이영호</div>
+                            <div style={{ marginTop: '4px', fontSize: '11px', color: 'rgba(255,255,255,0.3)' }}>
+                                v{__APP_VERSION__} · {__BUILD_DATE__}
+                            </div>
                         </div>
                     </div>
                 </div>
