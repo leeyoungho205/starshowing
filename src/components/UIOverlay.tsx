@@ -410,6 +410,17 @@ export default function UIOverlay({
                             <li><strong>빠른 이동:</strong> 좌측 상단의 메뉴를 이용해 전 세계 주요 명소로 즉시 이동해 보세요.</li>
                             <li><strong>지면 관측 모드:</strong> 위치 선택 후 나타나는 하단 버튼을 누르면, 해당 위치의 밤하늘을 1인칭으로 감상할 수 있습니다.</li>
                         </ul>
+
+                        <div style={{
+                            marginTop: '24px',
+                            paddingTop: '16px',
+                            borderTop: '1px solid rgba(255,255,255,0.1)',
+                            textAlign: 'center',
+                            color: 'rgba(255,255,255,0.45)',
+                            fontSize: '12px',
+                        }}>
+                            제작자: 고경초등학교 이영호
+                        </div>
                     </div>
                 </div>
             </div>
