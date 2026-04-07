@@ -34,6 +34,7 @@ function App() {
   }, [selectedLocation])
 
   const handleExitGroundView = useCallback(() => {
+    setIsPlaying(false)
     setViewMode('orbit')
     setSelectedLocation(null)
   }, [])

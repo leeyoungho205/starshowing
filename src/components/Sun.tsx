@@ -1,62 +1,65 @@
-import { useMemo } from "react";
-import { AdditiveBlending } from "three";
+import { useRef, useMemo } from "react";
+import { useFrame } from "@react-three/fiber";
+import { AdditiveBlending, Euler, Group, Vector3 } from "three";
 import * as THREE from "three";
 import { getSunPosition, raDecToXYZ } from "../utils/celestialCalc";
+
+// 매 프레임 재사용 인스턴스 (GC 방지)
+const _sunMiniVec = new Vector3();
+const _sunEuler = new Euler();
+
+interface ConvergenceState {
+  t: number;
+  tx: number;
+  ty: number;
+  tz: number;
+  rotY: number; // 미니 천구 Y축 회전각 (일주운동)
+}
 
 interface SunProps {
   time: Date;
   celestialRadius: number;
   viewMode?: "orbit" | "ground";
   zoomProgress: number;
+  convergenceRef?: React.RefObject<ConvergenceState>;
+  miniRadius?: number;
 }
 
 /**
  * 태양 렌더링 컴포넌트
  * - 밝은 노란색 구체 + 다중 글로우 레이어
- * - 천구 반지름 위에 배치
- * - 시간에 따라 위치 변경
+ * - 지구 클릭 시 별과 함께 미니 천구로 수렴 (크기 축소 포함)
  */
 export default function Sun({
   time,
   celestialRadius,
   viewMode,
   zoomProgress,
+  convergenceRef,
+  miniRadius = 0.3,
 }: SunProps) {
-  const { position, size, earthOrbitGeometry } = useMemo(() => {
-    const isOrbit = viewMode === "orbit";
+  const outerGroupRef = useRef<Group>(null);
 
-    // 태양계 모드에서는 크기 과장 (너무 커서 어색하지 않게 적당한 크기 6배 수준으로)
+  const { size, earthOrbitGeometry } = useMemo(() => {
+    const isOrbit = viewMode === "orbit";
     const sz = isOrbit ? 1.0 + 5.0 * zoomProgress : 1.0;
 
-    // 태양계를 쾌적하게 한눈에 보기 위한 태양 거리 (60)
     const sunTargetRadius = 60;
-    const actualRadius = isOrbit ? sunTargetRadius : celestialRadius;
-
-    const sunPos = getSunPosition(time);
-    const pos = raDecToXYZ(sunPos.ra, sunPos.dec, actualRadius);
-
-    // 완벽한 지구 공전 궤도선 (태양 중심 기준)
-    // 태양의 적위(Declination) 때문에 태양은 XZ 평면에 있지 않습니다.
-    // 궤도선이 정확히 지구(0,0,0)를 지나가게 하려면 단순한 2D 타원이 아니라, 1년치 상대 궤적을 3D로 그려야 합니다.
     const points = [];
     if (isOrbit) {
       const d = new Date(time.getTime());
-      // 올해 기준으로 1년(365일) 궤적을 전부 계산
       d.setMonth(0, 1);
       for (let i = 0; i <= 365; i++) {
         const sp = getSunPosition(d);
         const p = raDecToXYZ(sp.ra, sp.dec, sunTargetRadius);
-        // 지구 입장에서 태양의 위치가 p라면, 태양 입장에서 지구의 위치는 -p 입니다.
         points.push(new THREE.Vector3(-p[0], -p[1], -p[2]));
         d.setDate(d.getDate() + 1);
       }
     }
     const earthOrbitGeometry = new THREE.BufferGeometry().setFromPoints(points);
+    return { size: sz, earthOrbitGeometry };
+  }, [time, viewMode, zoomProgress]);
 
-    return { position: pos, size: sz, earthOrbitGeometry };
-  }, [time, celestialRadius, viewMode, zoomProgress]);
-
-  // ── 캔버스 텍스처 캐싱 (1회 생성) ──
   const innerGlowCanvas = useMemo(() => {
     const canvas = document.createElement("canvas");
     canvas.width = 128;
@@ -86,12 +89,48 @@ export default function Sun({
     return canvas;
   }, []);
 
+  // 매 프레임 위치·크기 임퍼러티브 설정 (수렴 애니메이션 반영)
+  useFrame(() => {
+    if (!outerGroupRef.current) return;
+
+    const isOrbit = viewMode === "orbit";
+    const sunTargetRadius = 60;
+    const actualRadius = isOrbit ? sunTargetRadius : celestialRadius;
+
+    const sunPos = getSunPosition(time);
+    const [bx, by, bz] = raDecToXYZ(sunPos.ra, sunPos.dec, actualRadius);
+
+    const conv = convergenceRef?.current;
+    if (conv && conv.t > 0) {
+      // 수렴 중: 미니 천구 위치로 이동 (별과 동일한 Y축 일주운동 적용)
+      const [mx, my, mz] = raDecToXYZ(sunPos.ra, sunPos.dec, miniRadius);
+      _sunEuler.set(0, conv.rotY * conv.t, 0);
+      _sunMiniVec.set(mx, my, mz).applyEuler(_sunEuler);
+
+      outerGroupRef.current.position.set(
+        bx + (conv.tx + _sunMiniVec.x - bx) * conv.t,
+        by + (conv.ty + _sunMiniVec.y - by) * conv.t,
+        bz + (conv.tz + _sunMiniVec.z - bz) * conv.t,
+      );
+
+      // 겉보기 등급 -26.7 기준 크기 축소 (밝은 별보다 크게)
+      const currentSize = isOrbit ? 1.0 + 5.0 * zoomProgress : 1.0;
+      const SUN_MINI_SIZE = 0.009;
+      outerGroupRef.current.scale.setScalar(
+        (currentSize * (1 - conv.t) + SUN_MINI_SIZE * conv.t) / currentSize,
+      );
+    } else {
+      outerGroupRef.current.position.set(bx, by, bz);
+      outerGroupRef.current.scale.setScalar(1);
+    }
+  });
+
   return (
-    <group position={position}>
+    <group ref={outerGroupRef}>
       {/* 태양 본체 */}
       <mesh>
         <sphereGeometry args={[size, 16, 16]} />
-        <meshBasicMaterial color="#FFF8E1" transparent opacity={1} />
+        <meshBasicMaterial color="#FFF8E1" />
       </mesh>
 
       {/* 글로우 레이어 1 - 내부 글로우 */}
@@ -118,10 +157,16 @@ export default function Sun({
         </spriteMaterial>
       </sprite>
 
-      {/* 태양계 뷰 전용: 지구의 공전 궤도선 (태양 중심, 완벽한 3D 궤적) */}
+      {/* 태양계 뷰 전용: 지구의 공전 궤도선 */}
       {viewMode === "orbit" && (
         <line>
-          <lineBasicMaterial attach="material" color="#4facfe" transparent opacity={zoomProgress * 0.35} depthWrite={false} />
+          <lineBasicMaterial
+            attach="material"
+            color="#4facfe"
+            transparent
+            opacity={zoomProgress * 0.35}
+            depthWrite={false}
+          />
           <primitive attach="geometry" object={earthOrbitGeometry} />
         </line>
       )}

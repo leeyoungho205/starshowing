@@ -17,14 +17,17 @@ interface SceneContainerProps {
     selectedLocation: { lat: number; lon: number } | null;
     onLocationSelect: (loc: { lat: number; lon: number }) => void;
     time: Date;
+    onGlobeRotate?: () => void; // 지구본 회전 시 시간 재생 일시정지
 }
 
 function OrbitCameraRig({
     zoomProgress,
-    time
+    time,
+    onGlobeRotate,
 }: {
     zoomProgress: number;
     time: Date;
+    onGlobeRotate?: () => void;
 }) {
     const controlsRef = useRef<OrbitControlsImpl>(null);
 
@@ -79,10 +82,11 @@ function OrbitCameraRig({
                 enablePan={false}
                 enableZoom={true}
                 minDistance={1.3}
-                maxDistance={90} // 줌아웃이 계속되어 비율이 이상해지는 것을 방지 (단단한 브레이크)
+                maxDistance={90}
                 zoomSpeed={1.0}
                 dampingFactor={0.08}
                 enableDamping
+                onStart={onGlobeRotate} // 드래그 시작 시 시간 재생 일시정지
             />
         </>
     );
@@ -93,6 +97,7 @@ export default function SceneContainer({
     selectedLocation,
     onLocationSelect,
     time,
+    onGlobeRotate,
 }: SceneContainerProps) {
     // 태양 위치로부터 조명 방향 계산
     const sunLightPosition = useMemo(() => {
@@ -159,6 +164,7 @@ export default function SceneContainer({
                         <OrbitCameraRig
                             zoomProgress={zoomProgress}
                             time={time}
+                            onGlobeRotate={onGlobeRotate}
                         />
                     </>
                 ) : (

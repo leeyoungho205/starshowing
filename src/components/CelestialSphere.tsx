@@ -73,8 +73,18 @@ export default function CelestialSphere({
 }: CelestialSphereProps) {
   const groupRef = useRef<Group>(null);
   const starMeshRefs = useRef<(Mesh | null)[]>([]);
-  const animState = useRef<{ progress: number; isAnimating: boolean; fixedTarget?: Vector3 }>({ progress: 0, isAnimating: false });
+  const animState = useRef<{ progress: number; isAnimating: boolean; fixedTarget?: Vector3; frozenEarthRotY?: number }>({ progress: 0, isAnimating: false });
   const prevLocation = useRef<{ lat: number; lon: number } | null>(null);
+
+  // ground 모드 여부를 셰이더에 전달하는 uniform (1.0 = ground, 0.0 = orbit)
+  // → ground 모드에서만 지평선 아래 별/선을 희미하게 처리 (남반구 별 정상 표시)
+  const groundModeUniform = useRef<{ value: number }>({ value: 0.0 });
+
+  // 태양·달 수렴 애니메이션 상태 공유 ref
+  // rotY: 미니 천구 Y축 회전각 (= -earthRotY, 시간 재생 시 일주운동)
+  const convergenceRef = useRef<{
+    t: number; tx: number; ty: number; tz: number; rotY: number;
+  }>({ t: 0, tx: 0, ty: 0, tz: 0, rotY: 0 });
 
   const CELESTIAL_RADIUS = 100;
   const MINI_RADIUS = 0.3;
@@ -110,7 +120,6 @@ export default function CelestialSphere({
   // orbit 모드로 복귀 시 별 위치 리셋
   useEffect(() => {
     if (viewMode === "orbit") {
-      // 별들을 원래 위치로 되돌림
       for (let i = 0; i < STARS.length; i++) {
         const mesh = starMeshRefs.current[i];
         if (!mesh) continue;
@@ -118,7 +127,6 @@ export default function CelestialSphere({
         mesh.position.set(ox, oy, oz);
         mesh.scale.setScalar(1);
       }
-      // constellation lines도 원래 위치로
       const geom = linesMesh.geometry;
       if (geom) {
         const posAttr = geom.attributes.position as Float32BufferAttribute;
@@ -137,12 +145,10 @@ export default function CelestialSphere({
         posAttr.needsUpdate = true;
         geom.computeBoundingSphere();
       }
-      // group 회전 리셋
       if (groupRef.current) {
         groupRef.current.rotation.set(0, 0, 0);
         groupRef.current.position.set(0, 0, 0);
       }
-      // Re-trigger convergence if location is selected
       if (selectedLocation) {
         animState.current = { progress: 0, isAnimating: true, fixedTarget: undefined };
       }
@@ -201,7 +207,9 @@ export default function CelestialSphere({
       transparent: true,
       opacity: 0.35,
     });
+    // ground 모드에서만 지평선 아래(y<0) 선을 희미하게 처리
     mat.onBeforeCompile = (shader) => {
+      shader.uniforms.uGroundMode = groundModeUniform.current;
       shader.vertexShader = shader.vertexShader
         .replace(
           "#include <common>",
@@ -223,13 +231,14 @@ vWorldPosition = (modelMatrix * vec4(position, 1.0)).xyz;
           `
 #include <common>
                 varying vec3 vWorldPosition;
+                uniform float uGroundMode;
 `,
         )
         .replace(
           "#include <dithering_fragment>",
           `
 #include <dithering_fragment>
-if (vWorldPosition.y < 0.0) {
+if (uGroundMode > 0.5 && vWorldPosition.y < 0.0) {
     gl_FragColor = vec4(gl_FragColor.rgb, gl_FragColor.a * 0.15);
 }
 `,
@@ -238,7 +247,7 @@ if (vWorldPosition.y < 0.0) {
     return new LineSegments(geom, mat);
   }, [linePairs, starOriginals]);
 
-  // ── 별 머티리얼 공유 ಕ್ಯಾ싱 (셰이더 재컴파일 방지) ──
+  // ── 별 머티리얼 공유 캐싱 (셰이더 재컴파일 방지) ──
   const starMaterials = useMemo(() => {
     const createStarMaterial = (opacity: number) => {
       const mat = new MeshBasicMaterial({
@@ -246,7 +255,9 @@ if (vWorldPosition.y < 0.0) {
         transparent: true,
         opacity,
       });
+      // ground 모드에서만 지평선 아래(y<0) 별을 희미하게 처리
       mat.onBeforeCompile = (shader) => {
+        shader.uniforms.uGroundMode = groundModeUniform.current;
         shader.vertexShader = shader.vertexShader
           .replace(
             "#include <common>",
@@ -268,13 +279,14 @@ if (vWorldPosition.y < 0.0) {
             `
                     #include <common>
                     varying vec3 vWorldPosition;
+                    uniform float uGroundMode;
                     `,
           )
           .replace(
             "#include <dithering_fragment>",
             `
                     #include <dithering_fragment>
-                    if (vWorldPosition.y < 0.0) {
+                    if (uGroundMode > 0.5 && vWorldPosition.y < 0.0) {
                         gl_FragColor = vec4(gl_FragColor.rgb, gl_FragColor.a * 0.15);
                     }
                     `,
@@ -305,52 +317,39 @@ if (vWorldPosition.y < 0.0) {
     (starMaterials.medium as any).opacity = 0.8 * starOpacityFactor;
     (starMaterials.dim as any).opacity = 0.6 * starOpacityFactor;
 
-    // 별자리 선 투명도 조절 (궤도 모드일 때 조금 더 진하게, 줌아웃 시 완전히 투명하게)
+    // 별자리 선 투명도 조절
     const linesMat = linesMesh.material as LineBasicMaterial;
     const baseLinesOpacity = viewMode === "orbit" ? 0.4 : 0.1;
     linesMat.opacity = baseLinesOpacity * starOpacityFactor;
     linesMesh.visible = starOpacityFactor > 0.01;
 
-    // 개별 별 mesh에 대해서도 완전히 투명해지면 렌더링을 끕니다
+    // 개별 별 가시성
     for (let i = 0; i < STARS.length; i++) {
       if (starMeshRefs.current[i]) {
         starMeshRefs.current[i]!.visible = starOpacityFactor > 0.01;
       }
     }
 
+    // ground 모드 uniform 업데이트 (지평선 아래 별 페이드 제어)
+    groundModeUniform.current.value = viewMode === "ground" ? 1.0 : 0.0;
+
     if (viewMode === "ground" && selectedLocation) {
       // ── Ground 모드: 천구를 LMST 기반으로 회전 ──
-      // 관측자는 원점(0,0,0)에 있고 천구가 관측자 주위를 감쌈
-      // 좌표계: Y=위(천정), Z=남(-Z=북), X=서(-X=동)
-
       const latRad = selectedLocation.lat * (Math.PI / 180);
       const lmstDeg = computeLMST(time, selectedLocation.lon);
       const lmstRad = lmstDeg * (Math.PI / 180);
 
-      // 천구 회전:
-      // 1. 천구의 적도좌표계에서 RA=0이 -Z(북) 방향을 향하고 있음
-      // 2. LMST만큼 Y축으로 회전 (시간에 따른 일주운동)
-      // 3. 위도만큼 X축으로 기울임 (관측자의 위도 → 천구 경사)
-
-      // 그룹 회전을 쿼터니언으로 설정
       const q = new Quaternion();
-
-      // Step 1: 위도 기반 기울임 (적도가 위도만큼 기울어짐)
-      // 천구의 북극이 지평면에서 위도만큼 높이 올라감
       const latTilt = new Quaternion().setFromEuler(
         new Euler(-(Math.PI / 2 - latRad), 0, 0),
       );
-
-      // Step 2: LMST 기반 회전 (시간에 따른 일주운동)
       const siderealRot = new Quaternion().setFromEuler(
         new Euler(0, -lmstRad, 0),
       );
-
       q.copy(latTilt).multiply(siderealRot);
       groupRef.current.quaternion.copy(q);
       groupRef.current.position.set(0, 0, 0);
 
-      // 별들을 원래 천구 위치로 복원 (수렴 애니메이션 중이 아닌 경우)
       for (let i = 0; i < STARS.length; i++) {
         const mesh = starMeshRefs.current[i];
         if (!mesh) continue;
@@ -359,7 +358,6 @@ if (vWorldPosition.y < 0.0) {
         mesh.scale.setScalar(1);
       }
 
-      // constellation lines도 원래 위치로
       const geom = linesMesh.geometry;
       if (geom) {
         const posAttr = geom.attributes.position as Float32BufferAttribute;
@@ -378,13 +376,13 @@ if (vWorldPosition.y < 0.0) {
         posAttr.needsUpdate = true;
       }
 
+      convergenceRef.current.t = 0;
       return;
     }
 
     // ── Orbit 모드 ──
     groupRef.current.rotation.y = 0;
 
-    // 별 수렴 애니메이션 및 위경도 위치 추적
     if (selectedLocation) {
       const anim = animState.current;
       if (anim.isAnimating) {
@@ -395,36 +393,47 @@ if (vWorldPosition.y < 0.0) {
       const p = anim.progress;
       const t = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
 
-      // Earth.tsx와 동일하게 현재 시각 기반 자전 각도 계산
+      // 라이브 시간으로 지구 자전각 계산 → 미니 천구 일주운동에 사용
       const gmstDeg = computeLMST(time, 0);
       const gmstRad = gmstDeg * (Math.PI / 180);
       const earthRotY = gmstRad - Math.PI / 2;
-
-      // 미니 지구본 위에서 별자리가 일주운동하는 방향을 반대로(정상적인 시각적 흐름) 설정하기 위해 각도 반전
-      _eulerY.set(0, -earthRotY, 0);
 
       // 타겟(미니 천구의 중심)은 클릭하여 얼어붙은 지구 표면과 정확히 일치해야 함.
       // Earth.tsx와 동일한 frozenTime으로 지구 표면의 회전 멈춘 위치를 계산하여 _targetVec 고정
       if (!animState.current.fixedTarget) {
         const frozenTime = frozenTimeRef.current ? new Date(frozenTimeRef.current) : time;
         const frozenGmstDeg = computeLMST(frozenTime, 0);
-        const frozenEarthRotY = (frozenGmstDeg * (Math.PI / 180)) - Math.PI / 2;
-        const frozenEulerY = new Euler(0, frozenEarthRotY, 0);
+        const frozenEarthRotYVal = (frozenGmstDeg * (Math.PI / 180)) - Math.PI / 2;
+        const frozenEulerY = new Euler(0, frozenEarthRotYVal, 0);
 
         const [rawTx, rawTy, rawTz] = latLonToXYZ(
           selectedLocation.lat,
           selectedLocation.lon,
           1.0,
         );
-
         // 멈춰있는 지구 모델과 일치하는 미니 천구 중심 월드 좌표 고정
         _targetVec.set(rawTx, rawTy, rawTz).applyEuler(frozenEulerY);
         animState.current.fixedTarget = _targetVec.clone();
+        // 클릭 순간의 지구 자전각 저장 (수렴 꼬임 방지용 델타 기준점)
+        animState.current.frozenEarthRotY = frozenEarthRotYVal;
       }
 
       const tx = animState.current.fixedTarget.x;
       const ty = animState.current.fixedTarget.y;
       const tz = animState.current.fixedTarget.z;
+
+      // 회전 델타: 클릭 시점 기준으로만 회전량 계산
+      // → t=0(시작)에서는 회전 0 (꼬임 없음), 시간 재생 시 서서히 회전
+      const frozenRotY = animState.current.frozenEarthRotY ?? earthRotY;
+      const rotYDelta = frozenRotY - earthRotY;
+      _eulerY.set(0, rotYDelta * t, 0);
+
+      // 태양·달 수렴 상태 업데이트 (rotY는 unscaled 델타, Sun/Moon에서 t를 곱해서 사용)
+      convergenceRef.current.t = t;
+      convergenceRef.current.tx = tx;
+      convergenceRef.current.ty = ty;
+      convergenceRef.current.tz = tz;
+      convergenceRef.current.rotY = rotYDelta;
 
       for (let i = 0; i < STARS.length; i++) {
         const mesh = starMeshRefs.current[i];
@@ -432,9 +441,7 @@ if (vWorldPosition.y < 0.0) {
         const [ox, oy, oz] = starOriginals[i];
         const [mx, my, mz] = raDecToXYZ(STARS[i].ra, STARS[i].dec, MINI_RADIUS);
 
-        // 미니 천구 내부의 별 좌표
-        // 기존: 자전 효과 제거하여 궤적 보존 (_rotM.set(mx, my, mz);)
-        // 변경: 시간에 따른 일주운동(Earth rotation)을 미니 천구에도 적용하여 별자리가 움직이게 함
+        // 미니 천구 별 좌표에 일주운동(Y축 회전) 적용 (시간 재생 시 별자리가 움직이게 함)
         _rotM.set(mx, my, mz).applyEuler(_eulerY);
 
         mesh.position.set(
@@ -466,7 +473,7 @@ if (vWorldPosition.y < 0.0) {
             MINI_RADIUS,
           );
 
-          // 별자리 선도 자전 효과(일주운동) 적용
+          // 별자리 선도 일주운동 적용
           _rotSM.set(smx, smy, smz).applyEuler(_eulerY);
           _rotEM.set(emx, emy, emz).applyEuler(_eulerY);
 
@@ -481,6 +488,8 @@ if (vWorldPosition.y < 0.0) {
         posAttr.needsUpdate = true;
         geom.computeBoundingSphere();
       }
+    } else {
+      convergenceRef.current.t = 0;
     }
   });
 
@@ -506,6 +515,8 @@ if (vWorldPosition.y < 0.0) {
         celestialRadius={CELESTIAL_RADIUS}
         viewMode={viewMode}
         zoomProgress={zoomProgress}
+        convergenceRef={convergenceRef}
+        miniRadius={MINI_RADIUS}
       />
 
       {/* ── 달 ── */}
@@ -514,6 +525,8 @@ if (vWorldPosition.y < 0.0) {
         celestialRadius={CELESTIAL_RADIUS}
         viewMode={viewMode}
         zoomProgress={zoomProgress}
+        convergenceRef={convergenceRef}
+        miniRadius={MINI_RADIUS}
       />
 
       {/* ── 행성 ── */}
