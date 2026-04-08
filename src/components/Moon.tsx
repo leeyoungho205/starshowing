@@ -131,9 +131,9 @@ export default function Moon({
         bz + (conv.tz + _moonMiniVec.z - bz) * conv.t,
       );
 
-      // 겉보기 등급 ~-12 기준 크기 축소 (태양보다 작고 밝은 별보다 크게)
+      // 미니 천구에서 달 크기를 태양과 동일하게 설정 (위상변화 시인성 확보)
       const currentSize = isOrbit ? 0.25 : celestialRadius * 0.015;
-      const MOON_MINI_SIZE = 0.006;
+      const MOON_MINI_SIZE = 0.009;
       outerGroupRef.current.scale.setScalar(
         (currentSize * (1 - conv.t) + MOON_MINI_SIZE * conv.t) / currentSize,
       );
