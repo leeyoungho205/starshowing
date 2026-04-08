@@ -393,6 +393,11 @@ if (uGroundMode > 0.5 && vWorldPosition.y < 0.0) {
       const p = anim.progress;
       const t = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
 
+      // 줌아웃 시 수렴을 해제 → zoomProgress=0.25 이상에서 effectiveT=0 (별이 원래 위치로)
+      // 이렇게 하면 mini sphere가 있어도 태양계 뷰로 자연스럽게 전환됨
+      const zoomFactor = Math.max(0, 1 - zoomProgress * 4);
+      const effectiveT = t * zoomFactor;
+
       // 라이브 시간으로 지구 자전각 계산 → 미니 천구 일주운동에 사용
       const gmstDeg = computeLMST(time, 0);
       const gmstRad = gmstDeg * (Math.PI / 180);
@@ -426,10 +431,10 @@ if (uGroundMode > 0.5 && vWorldPosition.y < 0.0) {
       // → t=0(시작)에서는 회전 0 (꼬임 없음), 시간 재생 시 서서히 회전
       const frozenRotY = animState.current.frozenEarthRotY ?? earthRotY;
       const rotYDelta = frozenRotY - earthRotY;
-      _eulerY.set(0, rotYDelta * t, 0);
+      _eulerY.set(0, rotYDelta * effectiveT, 0);
 
-      // 태양·달 수렴 상태 업데이트 (rotY는 unscaled 델타, Sun/Moon에서 t를 곱해서 사용)
-      convergenceRef.current.t = t;
+      // 태양·달 수렴 상태 업데이트 (effectiveT: 줌아웃 시 자동으로 0으로 감소)
+      convergenceRef.current.t = effectiveT;
       convergenceRef.current.tx = tx;
       convergenceRef.current.ty = ty;
       convergenceRef.current.tz = tz;
@@ -445,14 +450,14 @@ if (uGroundMode > 0.5 && vWorldPosition.y < 0.0) {
         _rotM.set(mx, my, mz).applyEuler(_eulerY);
 
         mesh.position.set(
-          ox + (tx + _rotM.x - ox) * t,
-          oy + (ty + _rotM.y - oy) * t,
-          oz + (tz + _rotM.z - oz) * t,
+          ox + (tx + _rotM.x - ox) * effectiveT,
+          oy + (ty + _rotM.y - oy) * effectiveT,
+          oz + (tz + _rotM.z - oz) * effectiveT,
         );
         const origSize = starSizes[i];
         const miniSize =
           STARS[i].mag < 1 ? 0.0045 : STARS[i].mag < 2 ? 0.0033 : 0.0023;
-        mesh.scale.setScalar((origSize * (1 - t) + miniSize * t) / origSize);
+        mesh.scale.setScalar((origSize * (1 - effectiveT) + miniSize * effectiveT) / origSize);
       }
 
       const geom = linesMesh.geometry;
@@ -478,12 +483,12 @@ if (uGroundMode > 0.5 && vWorldPosition.y < 0.0) {
           _rotEM.set(emx, emy, emz).applyEuler(_eulerY);
 
           const off = idx * 6;
-          arr[off] = sox + (tx + _rotSM.x - sox) * t;
-          arr[off + 1] = soy + (ty + _rotSM.y - soy) * t;
-          arr[off + 2] = soz + (tz + _rotSM.z - soz) * t;
-          arr[off + 3] = eox + (tx + _rotEM.x - eox) * t;
-          arr[off + 4] = eoy + (ty + _rotEM.y - eoy) * t;
-          arr[off + 5] = eoz + (tz + _rotEM.z - eoz) * t;
+          arr[off] = sox + (tx + _rotSM.x - sox) * effectiveT;
+          arr[off + 1] = soy + (ty + _rotSM.y - soy) * effectiveT;
+          arr[off + 2] = soz + (tz + _rotSM.z - soz) * effectiveT;
+          arr[off + 3] = eox + (tx + _rotEM.x - eox) * effectiveT;
+          arr[off + 4] = eoy + (ty + _rotEM.y - eoy) * effectiveT;
+          arr[off + 5] = eoz + (tz + _rotEM.z - eoz) * effectiveT;
         });
         posAttr.needsUpdate = true;
         geom.computeBoundingSphere();
